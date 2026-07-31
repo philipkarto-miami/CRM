@@ -24,12 +24,14 @@ export default async function ProductionPage() {
     <div>
       <PageHeader eyebrow="Fabrication" title="Suivi de production" />
 
-      <div className="grid grid-cols-7 gap-4">
+      <div className="flex gap-4 overflow-x-auto pb-4">
         {columns.map((col) => (
-          <div key={col.phase}>
-            <div className="mb-3 flex items-center justify-between">
-              <p className="eyebrow">{PHASE_LABELS[col.phase]}</p>
-              <span className="text-xs text-paper/40">{col.bags.length}</span>
+          <div key={col.phase} className="w-64 shrink-0">
+            <div className="card mb-3 flex items-center justify-between rounded-sm px-3 py-2">
+              <p className="eyebrow truncate">{PHASE_LABELS[col.phase]}</p>
+              <span className="ml-2 shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs text-paper">
+                {col.bags.length}
+              </span>
             </div>
             <div className="space-y-3">
               {col.bags.map((bag) => {
