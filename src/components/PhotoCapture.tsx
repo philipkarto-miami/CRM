@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { uploadBagPhoto } from "@/app/(app)/bags/actions";
 import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
 export function PhotoCapture({ bagId }: { bagId: string }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -99,15 +100,15 @@ export function PhotoCapture({ bagId }: { bagId: string }) {
 
       {error && <p className="text-xs text-red-400">{error}</p>}
 
-      {streaming && (
-        <div className="card space-y-2 rounded-sm p-3">
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <video ref={videoRef} className="w-full rounded-sm" muted playsInline />
-          <Button type="button" onClick={capturePhoto}>
-            Capturer
-          </Button>
-        </div>
-      )}
+      {/* Toujours monte (masque quand inactif) : sinon videoRef est encore
+          vide quand startWebcam() essaie d'y attacher le flux camera. */}
+      <div className={cn("card space-y-2 rounded-sm p-3", !streaming && "hidden")}>
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video ref={videoRef} className="w-full rounded-sm bg-black" autoPlay muted playsInline />
+        <Button type="button" onClick={capturePhoto}>
+          Capturer
+        </Button>
+      </div>
       <canvas ref={canvasRef} className="hidden" />
 
       {isPending && <p className="text-xs text-paper/40">Envoi en cours…</p>}

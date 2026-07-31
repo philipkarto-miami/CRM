@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 
 export function PhotoPickerInline({ onChange }: { onChange: (file: File | null) => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,15 +93,18 @@ export function PhotoPickerInline({ onChange }: { onChange: (file: File | null) 
 
       {error && <p className="text-xs text-red-400">{error}</p>}
 
-      {streaming && (
-        <div className="card space-y-2 rounded-sm p-3">
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <video ref={videoRef} className="w-full rounded-sm" muted playsInline />
-          <Button type="button" onClick={capturePhoto}>
-            Capturer
-          </Button>
-        </div>
-      )}
+      {/* Le <video> reste toujours monte (juste masque quand inactif) : s'il
+          n'etait rendu que lorsque streaming=true, la reference videoRef
+          serait encore vide au moment ou startWebcam() essaie d'y attacher
+          le flux camera, et l'aperçu resterait noir malgre l'autorisation
+          accordee. */}
+      <div className={cn("card space-y-2 rounded-sm p-3", !streaming && "hidden")}>
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video ref={videoRef} className="w-full rounded-sm bg-black" autoPlay muted playsInline />
+        <Button type="button" onClick={capturePhoto}>
+          Capturer
+        </Button>
+      </div>
       <canvas ref={canvasRef} className="hidden" />
 
       {preview && (
