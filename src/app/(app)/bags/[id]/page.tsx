@@ -8,6 +8,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { StageChecklist } from "@/components/StageChecklist";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { PhotoGallery } from "@/components/PhotoGallery";
+import { AssignSkuForm } from "@/components/AssignSkuForm";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
 import type { Bag, BagPhoto, BagStageProgress, ProductionStage, Supplier } from "@/types/database";
 
@@ -20,19 +21,21 @@ export default async function BagDetailPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: bag }, { data: suppliers }, { data: progress }, { data: photoRows }] = await Promise.all([
-    supabase.from("bags").select("*").eq("id", params.id).single(),
-    supabase.from("suppliers").select("*").order("name"),
-    supabase
-      .from("bag_stage_progress")
-      .select("*, production_stages(*)")
-      .eq("bag_id", params.id),
-    supabase
-      .from("bag_photos")
-      .select("*")
-      .eq("bag_id", params.id)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ data: bag }, { data: suppliers }, { data: progress }, { data: photoRows }, { data: skuOptions }] =
+    await Promise.all([
+      supabase.from("bags").select("*").eq("id", params.id).single(),
+      supabase.from("suppliers").select("*").order("name"),
+      supabase
+        .from("bag_stage_progress")
+        .select("*, production_stages(*)")
+        .eq("bag_id", params.id),
+      supabase
+        .from("bag_photos")
+        .select("*")
+        .eq("bag_id", params.id)
+        .order("created_at", { ascending: false }),
+      supabase.from("sku_catalog").select("sku, edition").order("sku"),
+    ]);
 
   if (!bag) notFound();
 
@@ -73,11 +76,11 @@ export default async function BagDetailPage({
             <CardTitle>Informations du sac</CardTitle>
             <form action={updateBagWithId} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <FormRow label="SKU">
-                  <Input name="sku" defaultValue={typedBag.sku ?? ""} placeholder="PKPOP35" />
-                </FormRow>
                 <FormRow label="N° de série (auto-généré)">
                   <Input value={typedBag.serial_number} disabled />
+                </FormRow>
+                <FormRow label="SKU (voir carte « Attribution du SKU » ci-dessous)">
+                  <Input value={typedBag.sku ?? "Non attribué"} disabled />
                 </FormRow>
               </div>
 
@@ -188,6 +191,21 @@ export default async function BagDetailPage({
 
               <Button type="submit">Enregistrer</Button>
             </form>
+          </Card>
+
+          <Card className="mt-8">
+            <CardTitle>Attribution du SKU</CardTitle>
+            <p className="mb-4 text-xs text-paper/40">
+              Le SKU définit la transformation à réaliser sur ce sac : il détermine
+              automatiquement, depuis le catalogue, quelles étapes de fabrication
+              s&apos;appliquent (et dans quel ordre) dans le suivi ci-contre.
+            </p>
+            <AssignSkuForm
+              bagId={typedBag.id}
+              currentSku={typedBag.sku}
+              currentEdition={typedBag.sku_edition}
+              skuOptions={(skuOptions as { sku: string; edition: string | null }[] | null) ?? []}
+            />
           </Card>
 
           <Card className="mt-8">

@@ -20,11 +20,14 @@ const STATUS_DOT: Record<StageStatus, string> = {
 export function StageChecklist({ bagId, progress }: { bagId: string; progress: Progress[] }) {
   const [isPending, startTransition] = useTransition();
 
+  // Une etape dont sequence_override est renseigne a ete positionnee selon
+  // le SKU attribue au sac (peut differer de l'ordre par defaut) ; sinon on
+  // retombe sur l'ordre par defaut de production_stages.
+  const sortKey = (p: Progress) => p.sequence_override ?? p.production_stages.order_index;
+
   const grouped = PHASE_ORDER.map((phase) => ({
     phase,
-    items: progress
-      .filter((p) => p.production_stages.phase === phase)
-      .sort((a, b) => a.production_stages.order_index - b.production_stages.order_index),
+    items: progress.filter((p) => p.production_stages.phase === phase).sort((a, b) => sortKey(a) - sortKey(b)),
   })).filter((g) => g.items.length > 0);
 
   function cycleStatus(item: Progress) {
@@ -56,7 +59,14 @@ export function StageChecklist({ bagId, progress }: { bagId: string; progress: P
                     className="flex items-center gap-3 text-left text-sm text-paper/80 hover:text-paper"
                   >
                     <span className={cn("h-2.5 w-2.5 rounded-full", STATUS_DOT[item.status])} />
-                    {item.production_stages.name}
+                    <span>
+                      {item.production_stages.name}
+                      {item.subcontract_note && (
+                        <span className="ml-2 text-xs text-gold/70">
+                          (sous-traité : {item.subcontract_note})
+                        </span>
+                      )}
+                    </span>
                   </button>
                   <span className="text-xs uppercase tracking-wider text-paper/40">
                     {STAGE_STATUS_LABELS[item.status]}

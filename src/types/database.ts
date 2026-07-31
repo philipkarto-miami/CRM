@@ -67,12 +67,30 @@ export interface ProductionStage {
   name: string;
   order_index: number;
   is_active: boolean;
+  // Colonne du catalogue SKU qui pilote cette etape (RECEPTION, EMBROIDERY,
+  // SUBCONTRACT_1...). Null = etape toujours applicable, independante du SKU.
+  catalog_column: string | null;
   created_at: string;
+}
+
+// steps: cle = code catalog_column (ex "EMBROIDERY"), valeur = position dans
+// la sequence de fabrication de ce SKU (number), une note de sous-traitance
+// (string, ex "3 & 6"), ou absente si l'etape ne s'applique pas a ce SKU.
+export type SkuCatalogSteps = Record<string, number | string>;
+
+export interface SkuCatalog {
+  id: string;
+  sku: string;
+  edition: string | null;
+  steps: SkuCatalogSteps;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Bag {
   id: string;
   sku: string | null;
+  sku_edition: string | null;
   serial_number: string;
   model_id: string | null;
   model_label: string;
@@ -113,6 +131,8 @@ export interface BagStageProgress {
   assigned_to: string | null;
   completed_at: string | null;
   notes: string | null;
+  sequence_override: number | null;
+  subcontract_note: string | null;
 }
 
 export interface Order {

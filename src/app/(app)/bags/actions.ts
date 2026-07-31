@@ -85,7 +85,8 @@ export async function updateBag(bagId: string, formData: FormData) {
   const supabase = createClient();
 
   const payload = {
-    sku: str(formData, "sku"),
+    // Le sku n'est plus modifiable ici : voir assignSku() (attribution depuis
+    // le catalogue, qui pilote aussi les etapes de fabrication).
     model_label: str(formData, "model_label"),
     size: str(formData, "size"),
     size_verified: formData.get("size_verified") === "on",
@@ -112,6 +113,110 @@ export async function updateBag(bagId: string, formData: FormData) {
 
   revalidatePath(`/bags/${bagId}`);
   revalidatePath("/bags");
+}
+
+// Attribution d'un SKU depuis le stock : le SKU determine, via le catalogue
+// (table sku_catalog, importee du fichier maitre de l'atelier), quelles
+// etapes de fabrication s'appliquent a ce sac precis et dans quel ordre.
+// On ne touche pas aux etapes "toujours applicables" (reception generale,
+// controle qualite, emballage, expedition, comptabilite...), on ne fait que :
+//   - supprimer les etapes pilotees par le SKU qui ne s'appliquent plus
+//   - creer les etapes pilotees par le SKU qui s'appliquent et n'existent
+//     pas encore (statut initial "a faire")
+//   - mettre a jour l'ordre (sequence_override) / la note de sous-traitance
+//     des etapes deja presentes, sans reinitialiser leur avancement
+export async function assignSku(
+  bagId: string,
+  sku: string
+): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const cleanSku = sku.trim();
+  if (!cleanSku) return { error: "SKU vide" };
+
+  const { data: catalogEntry, error: catalogError } = await supabase
+    .from("sku_catalog")
+    .select("*")
+    .ilike("sku", cleanSku)
+    .maybeSingle();
+
+  if (catalogError) return { error: catalogError.message };
+  if (!catalogEntry) {
+    return { error: `SKU "${cleanSku}" introuvable dans le catalogue.` };
+  }
+
+  const steps = (catalogEntry.steps ?? {}) as Record<string, number | string>;
+
+  const [{ data: stages }, { data: existingProgress }] = await Promise.all([
+    supabase.from("production_stages").select("*").eq("is_active", true),
+    supabase.from("bag_stage_progress").select("*").eq("bag_id", bagId),
+  ]);
+
+  const existingByStage = new Map((existingProgress ?? []).map((p) => [p.stage_id, p]));
+
+  const toDelete: string[] = [];
+  const toInsert: Record<string, unknown>[] = [];
+  const toUpdate: { id: string; sequence_override: number | null; subcontract_note: string | null }[] = [];
+
+  for (const stage of stages ?? []) {
+    const existing = existingByStage.get(stage.id);
+
+    // Etape toujours applicable (pas pilotee par le SKU) : on n'y touche pas.
+    if (!stage.catalog_column) continue;
+
+    const raw = steps[stage.catalog_column];
+    const applicable = raw !== undefined && raw !== null && raw !== "";
+
+    if (!applicable) {
+      if (existing) toDelete.push(existing.id);
+      continue;
+    }
+
+    const numeric = typeof raw === "number" ? raw : Number(raw);
+    const sequence_override = Number.isFinite(numeric) ? numeric : null;
+    const subcontract_note = typeof raw === "string" && !Number.isFinite(Number(raw)) ? raw : null;
+
+    if (existing) {
+      toUpdate.push({ id: existing.id, sequence_override, subcontract_note });
+    } else {
+      toInsert.push({
+        bag_id: bagId,
+        stage_id: stage.id,
+        status: "a_faire",
+        sequence_override,
+        subcontract_note,
+      });
+    }
+  }
+
+  if (toDelete.length > 0) {
+    const { error } = await supabase.from("bag_stage_progress").delete().in("id", toDelete);
+    if (error) return { error: error.message };
+  }
+
+  if (toInsert.length > 0) {
+    const { error } = await supabase.from("bag_stage_progress").insert(toInsert);
+    if (error) return { error: error.message };
+  }
+
+  for (const u of toUpdate) {
+    const { error } = await supabase
+      .from("bag_stage_progress")
+      .update({ sequence_override: u.sequence_override, subcontract_note: u.subcontract_note })
+      .eq("id", u.id);
+    if (error) return { error: error.message };
+  }
+
+  const { error: bagError } = await supabase
+    .from("bags")
+    .update({ sku: catalogEntry.sku, sku_edition: catalogEntry.edition })
+    .eq("id", bagId);
+
+  if (bagError) return { error: bagError.message };
+
+  revalidatePath(`/bags/${bagId}`);
+  revalidatePath("/bags");
+  revalidatePath("/production");
+  return {};
 }
 
 export async function updateStageProgress(
