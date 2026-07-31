@@ -8,7 +8,7 @@ import type { BagModel, Supplier } from "@/types/database";
 export default async function NewBagPage({ searchParams }: { searchParams: { error?: string } }) {
   const supabase = createClient();
   const [{ data: models }, { data: suppliers }] = await Promise.all([
-    supabase.from("bag_models").select("*, brands(name)").order("name"),
+    supabase.from("bag_models").select("*, brands(name)").order("sort_order"),
     supabase.from("suppliers").select("*").order("name"),
   ]);
 

@@ -37,6 +37,7 @@ export interface BagModel {
   brand_id: string | null;
   name: string;
   base_size: string | null;
+  sort_order: number;
   created_at: string;
 }
 
