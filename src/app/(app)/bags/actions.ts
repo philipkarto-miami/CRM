@@ -10,7 +10,9 @@ function str(formData: FormData, key: string) {
   return v ? String(v) : null;
 }
 
-export async function createBag(formData: FormData) {
+export async function createBag(
+  formData: FormData
+): Promise<{ id?: string; error?: string }> {
   const supabase = createClient();
   const {
     data: { user },
@@ -37,7 +39,7 @@ export async function createBag(formData: FormData) {
     !sizeVerified ||
     !canvasVerified
   ) {
-    redirect(`/bags/new?error=${encodeURIComponent("Merci de renseigner tous les champs")}`);
+    return { error: "Merci de renseigner tous les champs" };
   }
 
   // Le libelle affiche du sac est derive automatiquement du modele choisi
@@ -72,11 +74,11 @@ export async function createBag(formData: FormData) {
   const { data, error } = await supabase.from("bags").insert(payload).select("id").single();
 
   if (error) {
-    redirect(`/bags/new?error=${encodeURIComponent(error.message)}`);
+    return { error: error.message };
   }
 
   revalidatePath("/bags");
-  redirect(`/bags/${data!.id}`);
+  return { id: data.id };
 }
 
 export async function updateBag(bagId: string, formData: FormData) {

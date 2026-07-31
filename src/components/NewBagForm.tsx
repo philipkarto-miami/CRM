@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { createBag } from "@/app/(app)/bags/actions";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { createBag, uploadBagPhoto } from "@/app/(app)/bags/actions";
 import { FormRow, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { PhotoPickerInline } from "@/components/PhotoPickerInline";
 import type { BagModel, Supplier } from "@/types/database";
 
 type ModelWithBrand = BagModel & { brands: { name: string } | null };
@@ -15,6 +17,10 @@ export function NewBagForm({
   models: ModelWithBrand[];
   suppliers: Supplier[];
 }) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [formError, setFormError] = useState<string | null>(null);
+
   const [modelId, setModelId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [authNumber, setAuthNumber] = useState("");
@@ -23,6 +29,7 @@ export function NewBagForm({
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [sizeOk, setSizeOk] = useState(false);
   const [canvasOk, setCanvasOk] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const canSubmit =
     modelId !== "" &&
@@ -34,13 +41,40 @@ export function NewBagForm({
     sizeOk &&
     canvasOk;
 
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!canSubmit || isPending) return;
+
+    const fd = new FormData(e.currentTarget);
+    setFormError(null);
+
+    startTransition(async () => {
+      const result = await createBag(fd);
+
+      if (result.error || !result.id) {
+        setFormError(result.error ?? "Une erreur est survenue.");
+        return;
+      }
+
+      if (photoFile) {
+        const photoFd = new FormData();
+        photoFd.set("photo", photoFile);
+        await uploadBagPhoto(result.id, photoFd);
+      }
+
+      router.push(`/bags/${result.id}`);
+    });
+  }
+
   return (
-    <form action={createBag} className="card space-y-6 rounded-sm p-6">
+    <form onSubmit={handleSubmit} className="card space-y-6 rounded-sm p-6">
       <p className="text-xs text-paper/40">
-        Tous les champs ci-dessous sont obligatoires. Le n° de série PK est généré
-        automatiquement. Le SKU et les autres informations (prix d&apos;achat, notes,
-        photos...) pourront être complétés plus tard depuis la fiche du sac.
+        Tous les champs ci-dessous sont obligatoires (sauf la photo). Le n° de série PK
+        est généré automatiquement. Le SKU et les autres informations (prix
+        d&apos;achat, notes...) pourront être complétés plus tard depuis la fiche du sac.
       </p>
+
+      {formError && <p className="text-sm text-red-400">Erreur : {formError}</p>}
 
       <FormRow label="Modèle">
         <Select name="model_id" required value={modelId} onChange={(e) => setModelId(e.target.value)}>
@@ -135,8 +169,12 @@ export function NewBagForm({
         </label>
       </div>
 
-      <Button type="submit" disabled={!canSubmit}>
-        Créer le sac
+      <FormRow label="Photo (optionnel)">
+        <PhotoPickerInline onChange={setPhotoFile} />
+      </FormRow>
+
+      <Button type="submit" disabled={!canSubmit || isPending}>
+        {isPending ? "Création…" : "Créer le sac"}
       </Button>
     </form>
   );
