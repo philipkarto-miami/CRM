@@ -17,8 +17,27 @@ export async function createBag(formData: FormData) {
   } = await supabase.auth.getUser();
 
   const modelId = str(formData, "model_id");
-  if (!modelId) {
-    redirect(`/bags/new?error=${encodeURIComponent("Choisis un modele")}`);
+  const supplierId = str(formData, "supplier_id");
+  const authNumber = str(formData, "auth_number_supplier");
+  const deliveryDate = str(formData, "delivery_date");
+  const factoryDate = str(formData, "factory_date");
+  const invoiceNumber = str(formData, "invoice_number");
+  const sizeVerified = formData.get("size_verified") === "on";
+  const canvasVerified = formData.get("canvas_verified") === "on";
+
+  // Tous les champs du formulaire de creation sont obligatoires (verification
+  // cote serveur en complement du bouton grise cote client).
+  if (
+    !modelId ||
+    !supplierId ||
+    !authNumber ||
+    !deliveryDate ||
+    !factoryDate ||
+    !invoiceNumber ||
+    !sizeVerified ||
+    !canvasVerified
+  ) {
+    redirect(`/bags/new?error=${encodeURIComponent("Merci de renseigner tous les champs")}`);
   }
 
   // Le libelle affiche du sac est derive automatiquement du modele choisi
@@ -40,13 +59,13 @@ export async function createBag(formData: FormData) {
     model_id: modelId,
     model_label: modelLabel,
     brand_id: model?.brand_id ?? null,
-    size_verified: formData.get("size_verified") === "on",
-    canvas_verified: formData.get("canvas_verified") === "on",
-    supplier_id: str(formData, "supplier_id") || null,
-    auth_number_supplier: str(formData, "auth_number_supplier"),
-    factory_date: str(formData, "factory_date"),
-    delivery_date: str(formData, "delivery_date"),
-    invoice_number: str(formData, "invoice_number"),
+    size_verified: sizeVerified,
+    canvas_verified: canvasVerified,
+    supplier_id: supplierId,
+    auth_number_supplier: authNumber,
+    factory_date: factoryDate,
+    delivery_date: deliveryDate,
+    invoice_number: invoiceNumber,
     created_by: user?.id ?? null,
   };
 
