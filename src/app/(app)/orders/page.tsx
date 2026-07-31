@@ -10,7 +10,7 @@ export default async function OrdersPage() {
   const supabase = createClient();
   const { data: orders } = await supabase
     .from("orders")
-    .select("*, bags(sku, model_label), customers(full_name)")
+    .select("*, bags(serial_number, model_label), customers(full_name)")
     .order("order_date", { ascending: false });
 
   return (
@@ -40,7 +40,7 @@ export default async function OrdersPage() {
               <OrderRow
                 key={order.id}
                 order={order}
-                bagLabel={order.bags ? `${order.bags.sku} — ${order.bags.model_label}` : "-"}
+                bagLabel={order.bags ? `${order.bags.serial_number} — ${order.bags.model_label}` : "-"}
                 customerName={order.customers?.full_name ?? "-"}
               />
             ))}

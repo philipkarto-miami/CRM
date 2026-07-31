@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createBag } from "../actions";
 import { PageHeader } from "@/components/PageHeader";
-import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
+import { FormRow, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import type { BagModel, Supplier } from "@/types/database";
 
@@ -13,7 +13,7 @@ export default async function NewBagPage({ searchParams }: { searchParams: { err
   ]);
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-2xl">
       <PageHeader eyebrow="Stock" title="Nouveau sac" />
 
       {searchParams?.error && (
@@ -21,45 +21,22 @@ export default async function NewBagPage({ searchParams }: { searchParams: { err
       )}
 
       <form action={createBag} className="card space-y-6 rounded-sm p-6">
-        <div className="grid grid-cols-2 gap-4">
-          <FormRow label="SKU">
-            <Input name="sku" required placeholder="PKPOP35" />
-          </FormRow>
-          <FormRow label="N° de serie interne">
-            <Input name="serial_number" required placeholder="PK2607001" />
-          </FormRow>
-        </div>
+        <p className="text-xs text-paper/40">
+          Le n° de série PK est généré automatiquement (format PK+année+mois+incrément).
+          Le SKU et les autres informations (prix d&apos;achat, notes, photos...) pourront
+          être complétés plus tard depuis la fiche du sac.
+        </p>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormRow label="Modele (reference catalogue)">
-            <Select name="model_id">
-              <option value="">—</option>
-              {(models as (BagModel & { brands: { name: string } | null })[] | null)?.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.brands?.name} {m.name} {m.base_size}
-                </option>
-              ))}
-            </Select>
-          </FormRow>
-          <FormRow label="Libelle du modele (affichage)">
-            <Input name="model_label" required placeholder="PHILIP KARTO Speedy 35 cms POP ART" />
-          </FormRow>
-        </div>
-
-        <div className="grid grid-cols-3 gap-4">
-          <FormRow label="Taille">
-            <Input name="size" placeholder="35" />
-          </FormRow>
-          <FormRow label="Type de vente">
-            <Select name="sale_type" defaultValue="disassemble">
-              <option value="disassemble">Desassemble</option>
-              <option value="assemble">Assemble</option>
-            </Select>
-          </FormRow>
-          <FormRow label="Lien photos">
-            <Input name="photos_link" placeholder="https://..." />
-          </FormRow>
-        </div>
+        <FormRow label="Modèle">
+          <Select name="model_id" required>
+            <option value="">—</option>
+            {(models as (BagModel & { brands: { name: string } | null })[] | null)?.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.brands?.name} {m.name} {m.base_size}
+              </option>
+            ))}
+          </Select>
+        </FormRow>
 
         <div className="grid grid-cols-2 gap-4">
           <FormRow label="Fournisseur">
@@ -77,23 +54,31 @@ export default async function NewBagPage({ searchParams }: { searchParams: { err
           </FormRow>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <FormRow label="Prix d'achat (€)">
-            <Input type="number" step="0.01" name="purchase_price" />
+        <div className="grid grid-cols-2 gap-4">
+          <FormRow label="Date de livraison">
+            <Input type="date" name="delivery_date" />
           </FormRow>
-          <FormRow label="Date d'achat">
-            <Input type="date" name="purchase_date" />
-          </FormRow>
-          <FormRow label="Date de fabrication (LV / Hermes)">
+          <FormRow label="Date de fabrication (LV / Hermès)">
             <Input type="date" name="factory_date" />
           </FormRow>
         </div>
 
-        <FormRow label="Notes">
-          <Textarea name="notes" rows={3} />
+        <FormRow label="N° de facture">
+          <Input name="invoice_number" />
         </FormRow>
 
-        <Button type="submit">Creer le sac</Button>
+        <div className="grid grid-cols-2 gap-4">
+          <label className="flex items-center gap-2 text-sm text-paper/70">
+            <input type="checkbox" name="size_verified" className="accent-gold" />
+            Taille conforme (OK)
+          </label>
+          <label className="flex items-center gap-2 text-sm text-paper/70">
+            <input type="checkbox" name="canvas_verified" className="accent-gold" />
+            Toile conforme (OK)
+          </label>
+        </div>
+
+        <Button type="submit">Créer le sac</Button>
       </form>
     </div>
   );

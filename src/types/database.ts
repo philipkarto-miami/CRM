@@ -71,7 +71,7 @@ export interface ProductionStage {
 
 export interface Bag {
   id: string;
-  sku: string;
+  sku: string | null;
   serial_number: string;
   model_id: string | null;
   model_label: string;

@@ -8,7 +8,7 @@ import type { Bag, Customer } from "@/types/database";
 export default async function NewOrderPage({ searchParams }: { searchParams: { error?: string } }) {
   const supabase = createClient();
   const [{ data: bags }, { data: customers }] = await Promise.all([
-    supabase.from("bags").select("id, sku, model_label").order("sku"),
+    supabase.from("bags").select("id, serial_number, model_label").order("serial_number"),
     supabase.from("customers").select("id, full_name").order("full_name"),
   ]);
 
@@ -29,9 +29,9 @@ export default async function NewOrderPage({ searchParams }: { searchParams: { e
           <FormRow label="Sac">
             <Select name="bag_id" required>
               <option value="">—</option>
-              {(bags as Pick<Bag, "id" | "sku" | "model_label">[] | null)?.map((b) => (
+              {(bags as Pick<Bag, "id" | "serial_number" | "model_label">[] | null)?.map((b) => (
                 <option key={b.id} value={b.id}>
-                  {b.sku} — {b.model_label}
+                  {b.serial_number} — {b.model_label}
                 </option>
               ))}
             </Select>

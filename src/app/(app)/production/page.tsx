@@ -42,7 +42,7 @@ export default async function ProductionPage() {
                     href={`/bags/${bag.id}`}
                     className="card block rounded-sm p-3 hover:border-gold"
                   >
-                    <p className="text-xs text-gold">{bag.sku}</p>
+                    <p className="text-xs text-gold">{bag.serial_number}</p>
                     <p className="mb-2 truncate text-sm text-paper/80">{bag.model_label}</p>
                     <div className="h-1 w-full rounded-full bg-white/10">
                       <div

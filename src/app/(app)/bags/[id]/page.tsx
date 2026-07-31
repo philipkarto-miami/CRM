@@ -36,7 +36,7 @@ export default async function BagDetailPage({
   return (
     <div>
       <PageHeader
-        eyebrow={typedBag.sku}
+        eyebrow={typedBag.serial_number}
         title={typedBag.model_label}
         action={
           <form action={deleteBagWithId}>
@@ -56,6 +56,15 @@ export default async function BagDetailPage({
           <Card>
             <CardTitle>Informations du sac</CardTitle>
             <form action={updateBagWithId} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <FormRow label="SKU">
+                  <Input name="sku" defaultValue={typedBag.sku ?? ""} placeholder="PKPOP35" />
+                </FormRow>
+                <FormRow label="N° de série (auto-généré)">
+                  <Input value={typedBag.serial_number} disabled />
+                </FormRow>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <FormRow label="Libelle du modele">
                   <Input name="model_label" defaultValue={typedBag.model_label} required />

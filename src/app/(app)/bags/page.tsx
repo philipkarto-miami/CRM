@@ -26,9 +26,9 @@ export default async function BagsPage() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-line text-xs uppercase tracking-widest2 text-paper/40">
-              <th className="px-4 py-3">SKU</th>
+              <th className="px-4 py-3">N° série</th>
               <th className="px-4 py-3">Modele</th>
-              <th className="px-4 py-3">N° serie</th>
+              <th className="px-4 py-3">SKU</th>
               <th className="px-4 py-3">Type de vente</th>
               <th className="px-4 py-3">Phase</th>
               <th className="px-4 py-3">Livraison</th>
@@ -39,11 +39,11 @@ export default async function BagsPage() {
               <tr key={bag.id} className="border-b border-line/60 last:border-0 hover:bg-white/[0.02]">
                 <td className="px-4 py-3">
                   <Link href={`/bags/${bag.id}`} className="text-gold hover:underline">
-                    {bag.sku}
+                    {bag.serial_number}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-paper/80">{bag.model_label}</td>
-                <td className="px-4 py-3 text-paper/60">{bag.serial_number}</td>
+                <td className="px-4 py-3 text-paper/60">{bag.sku ?? "-"}</td>
                 <td className="px-4 py-3 text-paper/60">{SALE_TYPE_LABELS[bag.sale_type]}</td>
                 <td className="px-4 py-3">
                   <Badge tone="gold">{PHASE_LABELS[bag.current_phase]}</Badge>

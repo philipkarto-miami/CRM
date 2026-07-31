@@ -16,21 +16,37 @@ export async function createBag(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const modelId = str(formData, "model_id");
+  if (!modelId) {
+    redirect(`/bags/new?error=${encodeURIComponent("Choisis un modele")}`);
+  }
+
+  // Le libelle affiche du sac est derive automatiquement du modele choisi
+  // (ex: "Louis Vuitton Speedy 35") — plus besoin de le saisir a la main.
+  const { data: model } = await supabase
+    .from("bag_models")
+    .select("*, brands(name)")
+    .eq("id", modelId)
+    .single();
+
+  const modelLabel = model
+    ? [model.brands?.name, model.name, model.base_size].filter(Boolean).join(" ")
+    : "";
+
   const payload = {
-    sku: str(formData, "sku"),
-    serial_number: str(formData, "serial_number"),
-    model_id: str(formData, "model_id") || null,
-    model_label: str(formData, "model_label"),
-    brand_id: str(formData, "brand_id") || null,
-    size: str(formData, "size"),
+    // sku et serial_number ne sont pas saisis a la creation : le sku reste
+    // vide (modifiable plus tard sur la fiche du sac), le serial_number est
+    // genere automatiquement cote base de donnees (format PKAAMMNNN).
+    model_id: modelId,
+    model_label: modelLabel,
+    brand_id: model?.brand_id ?? null,
+    size_verified: formData.get("size_verified") === "on",
+    canvas_verified: formData.get("canvas_verified") === "on",
     supplier_id: str(formData, "supplier_id") || null,
     auth_number_supplier: str(formData, "auth_number_supplier"),
-    purchase_price: str(formData, "purchase_price") ? Number(str(formData, "purchase_price")) : null,
-    purchase_date: str(formData, "purchase_date"),
     factory_date: str(formData, "factory_date"),
-    photos_link: str(formData, "photos_link"),
-    sale_type: str(formData, "sale_type") || "disassemble",
-    notes: str(formData, "notes"),
+    delivery_date: str(formData, "delivery_date"),
+    invoice_number: str(formData, "invoice_number"),
     created_by: user?.id ?? null,
   };
 
@@ -48,6 +64,7 @@ export async function updateBag(bagId: string, formData: FormData) {
   const supabase = createClient();
 
   const payload = {
+    sku: str(formData, "sku"),
     model_label: str(formData, "model_label"),
     size: str(formData, "size"),
     size_verified: formData.get("size_verified") === "on",
