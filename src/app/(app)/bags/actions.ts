@@ -164,7 +164,9 @@ export async function assignSku(
     if (!stage.catalog_column) continue;
 
     const raw = steps[stage.catalog_column];
-    const applicable = raw !== undefined && raw !== null && raw !== "";
+    // 0 est traite exactement comme une case vide : l'etape ne s'applique
+    // pas a ce SKU (confirme sur le fichier maitre de l'atelier).
+    const applicable = raw !== undefined && raw !== null && raw !== "" && raw !== 0 && raw !== "0";
 
     if (!applicable) {
       if (existing) toDelete.push(existing.id);

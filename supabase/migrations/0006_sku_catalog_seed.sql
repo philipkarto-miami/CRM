@@ -2,7 +2,8 @@
 -- Philip Karto CRM - catalogue SKU (import du fichier maitre V2 SKU.xlsx)
 -- Genere automatiquement a partir des valeurs mises en cache dans
 -- TEMPLATE ORDER.xlsx (liaison externe Excel vers V2 SKU.xlsx / Feuil1).
--- 923 SKU importes.
+-- 923 SKU importes. Une valeur 0 dans le fichier source est traitee
+-- exactement comme une cellule vide (etape a ignorer pour ce SKU).
 -- ============================================================================
 
 insert into sku_catalog (sku, edition, steps) values
@@ -452,7 +453,7 @@ insert into sku_catalog (sku, edition, steps) values
   ('PKSQM45', 'PK.02', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"BANDS":4,"HANDLES":6,"LINING":7,"CLOSING":8,"PAINTING":5,"SHOULDER_STRAP":9}'::jsonb),
   ('PKSQM50', 'PK.02', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"BANDS":4,"HANDLES":6,"LINING":7,"CLOSING":8,"PAINTING":5,"SHOULDER_STRAP":9}'::jsonb),
   ('PKSQM55', 'PK.02', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"BANDS":4,"HANDLES":6,"LINING":7,"CLOSING":8,"PAINTING":5,"SHOULDER_STRAP":9}'::jsonb),
-  ('PKSQO30', 'PK.02', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"EMBROIDERY":0,"HANDLES":5,"LINING":6,"CLOSING":7,"SHOULDER_STRAP":8}'::jsonb),
+  ('PKSQO30', 'PK.02', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"HANDLES":5,"LINING":6,"CLOSING":7,"SHOULDER_STRAP":8}'::jsonb),
   ('PKSQO35', 'PK.02', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"BANDS":4,"HANDLES":6,"LINING":7,"CLOSING":8,"PAINTING":5,"SHOULDER_STRAP":9}'::jsonb),
   ('PKSQO40', 'PK.02', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"BANDS":4,"HANDLES":6,"LINING":7,"CLOSING":8,"PAINTING":5,"SHOULDER_STRAP":9}'::jsonb),
   ('PKSQO45', 'PK.02', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"BANDS":4,"HANDLES":6,"LINING":7,"CLOSING":8,"PAINTING":5,"SHOULDER_STRAP":9}'::jsonb),
@@ -886,7 +887,7 @@ insert into sku_catalog (sku, edition, steps) values
   ('PKCUSTOM50', 'PK.CU', '{}'::jsonb),
   ('PKCUSTOM55', 'PK.CU', '{}'::jsonb),
   ('PKCUSTOM25', 'PK.CU', '{}'::jsonb),
-  ('PKHSQPATCHBLK35', 'PK.05', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"CLOSING":5,"PATCH":4,"SUBCONTRACT_1":"4 & 5","SUBCONTRACT_2":0}'::jsonb),
+  ('PKHSQPATCHBLK35', 'PK.05', '{"RECEPTION":1,"DISASSEMBLING":2,"EMBROIDERY_SIDE":3,"CLOSING":5,"PATCH":4,"SUBCONTRACT_1":"4 & 5"}'::jsonb),
   ('PKCNFEBLK', 'ARCHIVE', '{}'::jsonb),
   ('PKCNFECAMO', 'ARCHIVE', '{}'::jsonb),
   ('PKCOTTEEBLK', 'PK.CLOTHE', '{}'::jsonb),
