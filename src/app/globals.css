@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+body {
+  background-color: #0a0a0a;
+  color: #f7f5f0;
+}
+
+::selection {
+  background-color: #b08d57;
+  color: #0a0a0a;
+}
+
+/* Scrollbar discret, dans le ton de la charte */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #0a0a0a;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #2a2a2a;
+  border-radius: 999px;
+  border: 2px solid #0a0a0a;
+}
+
+.eyebrow {
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  font-size: 0.7rem;
+  color: #b08d57;
+}
+
+.card {
+  background-color: #121212;
+  border: 1px solid #232323;
+}
+
+.input-base {
+  background-color: #121212;
+  border: 1px solid #2a2a2a;
+  color: #f7f5f0;
+}
+.input-base:focus {
+  outline: none;
+  border-color: #b08d57;
+}
