@@ -10,6 +10,17 @@ import type { BagModel, Supplier } from "@/types/database";
 
 type ModelWithBrand = BagModel & { brands: { name: string } | null };
 
+// Le numero exact (increment sur 3 chiffres) n'est connu qu'a l'enregistrement
+// (attribue cote base de donnees pour eviter tout doublon entre plusieurs
+// utilisateurs qui creeraient un sac au meme moment) ; on affiche donc un
+// apercu du prefixe AAMM en attendant, dans un champ grise non modifiable.
+function serialPreviewPrefix() {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  return `${yy}${mm}`;
+}
+
 export function NewBagForm({
   models,
   suppliers,
@@ -75,6 +86,10 @@ export function NewBagForm({
       </p>
 
       {formError && <p className="text-sm text-red-400">Erreur : {formError}</p>}
+
+      <FormRow label="N° de série (auto-généré à la création)">
+        <Input value={`PK${serialPreviewPrefix()}···`} disabled />
+      </FormRow>
 
       <FormRow label="Modèle">
         <Select name="model_id" required value={modelId} onChange={(e) => setModelId(e.target.value)}>
