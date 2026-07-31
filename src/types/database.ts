@@ -97,6 +97,14 @@ export interface Bag {
   updated_at: string;
 }
 
+export interface BagPhoto {
+  id: string;
+  bag_id: string;
+  storage_path: string;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
 export interface BagStageProgress {
   id: string;
   bag_id: string;

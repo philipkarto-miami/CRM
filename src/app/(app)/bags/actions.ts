@@ -133,3 +133,39 @@ export async function deleteBag(bagId: string) {
   revalidatePath("/bags");
   redirect("/bags");
 }
+
+export async function uploadBagPhoto(bagId: string, formData: FormData) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const file = formData.get("photo") as File | null;
+  if (!file || file.size === 0) return;
+
+  const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
+  const path = `${bagId}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("bag-photos")
+    .upload(path, file, { contentType: file.type || "image/jpeg" });
+
+  if (uploadError) {
+    throw new Error(uploadError.message);
+  }
+
+  await supabase.from("bag_photos").insert({
+    bag_id: bagId,
+    storage_path: path,
+    uploaded_by: user?.id ?? null,
+  });
+
+  revalidatePath(`/bags/${bagId}`);
+}
+
+export async function deleteBagPhoto(photoId: string, storagePath: string, bagId: string) {
+  const supabase = createClient();
+  await supabase.storage.from("bag-photos").remove([storagePath]);
+  await supabase.from("bag_photos").delete().eq("id", photoId);
+  revalidatePath(`/bags/${bagId}`);
+}

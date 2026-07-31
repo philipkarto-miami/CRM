@@ -6,8 +6,10 @@ import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { StageChecklist } from "@/components/StageChecklist";
+import { PhotoCapture } from "@/components/PhotoCapture";
+import { PhotoGallery } from "@/components/PhotoGallery";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
-import type { Bag, BagStageProgress, ProductionStage, Supplier } from "@/types/database";
+import type { Bag, BagPhoto, BagStageProgress, ProductionStage, Supplier } from "@/types/database";
 
 export default async function BagDetailPage({
   params,
@@ -18,13 +20,18 @@ export default async function BagDetailPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: bag }, { data: suppliers }, { data: progress }] = await Promise.all([
+  const [{ data: bag }, { data: suppliers }, { data: progress }, { data: photoRows }] = await Promise.all([
     supabase.from("bags").select("*").eq("id", params.id).single(),
     supabase.from("suppliers").select("*").order("name"),
     supabase
       .from("bag_stage_progress")
       .select("*, production_stages(*)")
       .eq("bag_id", params.id),
+    supabase
+      .from("bag_photos")
+      .select("*")
+      .eq("bag_id", params.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   if (!bag) notFound();
@@ -32,6 +39,15 @@ export default async function BagDetailPage({
   const typedBag = bag as Bag;
   const updateBagWithId = updateBag.bind(null, typedBag.id);
   const deleteBagWithId = deleteBag.bind(null, typedBag.id);
+
+  const photos = await Promise.all(
+    ((photoRows as BagPhoto[] | null) ?? []).map(async (photo) => {
+      const { data: signed } = await supabase.storage
+        .from("bag-photos")
+        .createSignedUrl(photo.storage_path, 3600);
+      return { id: photo.id, storage_path: photo.storage_path, url: signed?.signedUrl ?? null };
+    })
+  );
 
   return (
     <div>
@@ -172,6 +188,14 @@ export default async function BagDetailPage({
 
               <Button type="submit">Enregistrer</Button>
             </form>
+          </Card>
+
+          <Card className="mt-8">
+            <CardTitle>Photos</CardTitle>
+            <div className="mb-4">
+              <PhotoGallery bagId={typedBag.id} photos={photos} />
+            </div>
+            <PhotoCapture bagId={typedBag.id} />
           </Card>
         </div>
 
