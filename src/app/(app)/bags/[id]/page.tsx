@@ -9,7 +9,7 @@ import { StageChecklist } from "@/components/StageChecklist";
 import { PhotoCapture } from "@/components/PhotoCapture";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { AssignSkuForm } from "@/components/AssignSkuForm";
-import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
+import { PHASE_LABELS } from "@/lib/constants";
 import type { Bag, BagPhoto, BagStageProgress, ProductionStage, Supplier } from "@/types/database";
 
 export default async function BagDetailPage({
@@ -165,14 +165,8 @@ export default async function BagDetailPage({
                     <option value="assemble">Assemble</option>
                   </Select>
                 </FormRow>
-                <FormRow label="Phase actuelle">
-                  <Select name="current_phase" defaultValue={typedBag.current_phase}>
-                    {PHASE_ORDER.map((phase) => (
-                      <option key={phase} value={phase}>
-                        {PHASE_LABELS[phase]}
-                      </option>
-                    ))}
-                  </Select>
+                <FormRow label="Phase actuelle (automatique)">
+                  <Input value={PHASE_LABELS[typedBag.current_phase]} disabled />
                 </FormRow>
               </div>
 
