@@ -14,7 +14,7 @@ export function LogoutButton() {
         router.push("/login");
         router.refresh();
       }}
-      className="text-xs uppercase tracking-widest2 text-paper/50 hover:text-gold"
+      className="text-xs uppercase tracking-widest2 text-white/50 hover:text-[#c9a35c]"
     >
       Deconnexion
     </button>

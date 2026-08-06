@@ -5,11 +5,20 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: "#0a0a0a",
-        paper: "#f7f5f0",
-        bone: "#eae6db",
-        gold: "#b08d57",
-        line: "#2a2a2a",
+        // Theme clair et epure, inspire du site philipkarto.com (fond gris
+        // chaud, cartes blanches, texte quasi noir, accent or fonce pour
+        // rester lisible sur fond clair). "ink" reste le nom du fond
+        // principal, "paper" celui du texte principal, meme si leurs
+        // valeurs sont desormais inversees par rapport au theme sombre
+        // d'origine.
+        ink: "#f3f1ea",
+        paper: "#221f19",
+        bone: "#ffffff",
+        gold: "#8a6a30",
+        line: "#e2dccb",
+        // Chip sombre dedie pour poser le logo blanc (variante claire du
+        // logo pas fournie) dans la sidebar.
+        brandDark: "#0a0a0a",
       },
       fontFamily: {
         serif: ["var(--font-serif)", "Georgia", "serif"],

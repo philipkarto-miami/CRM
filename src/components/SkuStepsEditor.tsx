@@ -101,7 +101,7 @@ export function SkuStepsEditor({
                   if (dragIndex !== null && dragIndex !== index) reorder(dragIndex, index);
                   setDragIndex(null);
                 }}
-                className="flex items-center gap-3 rounded-sm border border-line/60 bg-white/[0.02] px-3 py-2"
+                className="flex items-center gap-3 rounded-sm border border-line/60 bg-black/[0.02] px-3 py-2"
               >
                 <span className="cursor-grab text-paper/30" aria-hidden="true">
                   ⠿

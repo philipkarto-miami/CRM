@@ -29,7 +29,7 @@ export default async function ProductionPage() {
           <div key={col.phase} className="w-64 shrink-0">
             <div className="card mb-3 flex items-center justify-between rounded-sm px-3 py-2">
               <p className="eyebrow truncate">{PHASE_LABELS[col.phase]}</p>
-              <span className="ml-2 shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs text-paper">
+              <span className="ml-2 shrink-0 rounded-full bg-black/10 px-2 py-0.5 text-xs text-paper">
                 {col.bags.length}
               </span>
             </div>
@@ -46,7 +46,7 @@ export default async function ProductionPage() {
                   >
                     <p className="text-xs text-gold">{bag.serial_number}</p>
                     <p className="mb-2 truncate text-sm text-paper/80">{bag.model_label}</p>
-                    <div className="h-1 w-full rounded-full bg-white/10">
+                    <div className="h-1 w-full rounded-full bg-black/10">
                       <div
                         className="h-1 rounded-full bg-gold"
                         style={{ width: `${pct}%` }}

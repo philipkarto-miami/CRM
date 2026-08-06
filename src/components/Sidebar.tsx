@@ -21,11 +21,15 @@ const NAV: { href: string; label: string; roles?: UserRole[] }[] = [
 export function Sidebar({ role, fullName }: { role: UserRole; fullName: string }) {
   const pathname = usePathname();
 
+  // La sidebar reste sombre (comme le bandeau noir du site philipkarto.com)
+  // pendant que le reste de l'outil est clair et epure : le logo blanc
+  // officiel n'existe que dans cette variante, il a besoin d'un fond sombre.
   return (
-    <aside className="flex h-screen w-64 shrink-0 flex-col border-r border-line bg-ink">
+    <aside className="flex h-screen w-64 shrink-0 flex-col bg-brandDark">
       <div className="px-6 py-8">
-        <p className="font-serif text-xl tracking-wide text-paper">Philip Karto</p>
-        <p className="eyebrow mt-1">Atelier CRM</p>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/philip-karto-logo-white.avif" alt="Philip Karto" className="h-6 w-auto" />
+        <p className="mt-2 text-[0.7rem] uppercase tracking-widest2 text-[#8a6a30]">Atelier CRM</p>
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
@@ -37,7 +41,9 @@ export function Sidebar({ role, fullName }: { role: UserRole; fullName: string }
               href={item.href}
               className={cn(
                 "block px-3 py-2 text-sm tracking-wide transition-colors",
-                active ? "border-l-2 border-gold bg-white/5 text-gold" : "border-l-2 border-transparent text-paper/60 hover:text-paper"
+                active
+                  ? "border-l-2 border-gold bg-white/5 text-[#c9a35c]"
+                  : "border-l-2 border-transparent text-white/50 hover:text-white/90"
               )}
             >
               {item.label}
@@ -46,9 +52,9 @@ export function Sidebar({ role, fullName }: { role: UserRole; fullName: string }
         })}
       </nav>
 
-      <div className="border-t border-line px-6 py-4">
-        <p className="text-sm text-paper">{fullName}</p>
-        <p className="mb-3 text-xs uppercase tracking-widest2 text-paper/40">{role}</p>
+      <div className="border-t border-white/10 px-6 py-4">
+        <p className="text-sm text-white/80">{fullName}</p>
+        <p className="mb-3 text-xs uppercase tracking-widest2 text-white/30">{role}</p>
         <LogoutButton />
       </div>
     </aside>

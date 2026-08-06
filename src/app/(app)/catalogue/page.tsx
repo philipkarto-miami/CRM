@@ -51,7 +51,7 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
             href={`/catalogue/${entry.sku}`}
             className="card block space-y-2 rounded-sm p-3 hover:border-gold/40"
           >
-            <div className="flex h-28 items-center justify-center overflow-hidden rounded-sm bg-white/5">
+            <div className="flex h-28 items-center justify-center overflow-hidden rounded-sm bg-black/[0.03]">
               {photoUrls.has(entry.sku) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photoUrls.get(entry.sku)} alt="" className="h-full w-full object-cover" />

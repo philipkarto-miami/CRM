@@ -90,7 +90,7 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
         <div>
           <Card>
             <CardTitle>Photo</CardTitle>
-            <div className="mb-3 flex h-40 items-center justify-center overflow-hidden rounded-sm bg-white/5">
+            <div className="mb-3 flex h-40 items-center justify-center overflow-hidden rounded-sm bg-black/[0.03]">
               {photoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photoUrl} alt="" className="h-full w-full object-cover" />

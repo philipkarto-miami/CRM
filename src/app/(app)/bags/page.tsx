@@ -36,7 +36,7 @@ export default async function BagsPage() {
           </thead>
           <tbody>
             {(bags as Bag[] | null)?.map((bag) => (
-              <tr key={bag.id} className="border-b border-line/60 last:border-0 hover:bg-white/[0.02]">
+              <tr key={bag.id} className="border-b border-line/60 last:border-0 hover:bg-black/[0.02]">
                 <td className="px-4 py-3">
                   <Link href={`/bags/${bag.id}`} className="text-gold hover:underline">
                     {bag.serial_number}
