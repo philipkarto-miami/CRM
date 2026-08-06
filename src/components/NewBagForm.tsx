@@ -7,7 +7,6 @@ import { linkOrderToBag } from "@/app/(app)/orders/actions";
 import { FormRow, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { PhotoPickerInline } from "@/components/PhotoPickerInline";
-import { SALE_TYPE_LABELS } from "@/lib/constants";
 import type { BagModel, Supplier } from "@/types/database";
 
 type ModelWithBrand = BagModel & { brands: { name: string } | null };
@@ -26,9 +25,11 @@ function serialPreviewPrefix() {
 export function NewBagForm({
   models,
   suppliers,
+  skuOptions,
 }: {
   models: ModelWithBrand[];
   suppliers: Supplier[];
+  skuOptions: { sku: string; edition: string | null }[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -43,9 +44,10 @@ export function NewBagForm({
   const [sizeOk, setSizeOk] = useState(false);
   const [canvasOk, setCanvasOk] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [saleType, setSaleType] = useState<"assemble" | "disassemble">("disassemble");
+  const [skuInput, setSkuInput] = useState("");
   const [pendingBagId, setPendingBagId] = useState<string | null>(null);
   const [matchingOrders, setMatchingOrders] = useState<{ id: string; order_name: string }[]>([]);
+  const [skuWarning, setSkuWarning] = useState<string | null>(null);
 
   const canSubmit =
     modelId !== "" &&
@@ -78,11 +80,14 @@ export function NewBagForm({
         await uploadBagPhoto(result.id, photoFd);
       }
 
-      if (result.matchingOrders && result.matchingOrders.length > 0) {
-        // Des commandes attendaient justement ce modele : on propose le
-        // rattachement avant de continuer, plutot que de l'imposer.
+      const hasMatches = result.matchingOrders && result.matchingOrders.length > 0;
+      if (hasMatches || result.skuWarning) {
+        // Des commandes attendaient justement ce modele, et/ou le SKU
+        // saisi n'a pas pu etre applique : on informe avant de continuer,
+        // plutot que de l'imposer silencieusement.
         setPendingBagId(result.id);
-        setMatchingOrders(result.matchingOrders);
+        setMatchingOrders(result.matchingOrders ?? []);
+        setSkuWarning(result.skuWarning ?? null);
         return;
       }
 
@@ -101,10 +106,14 @@ export function NewBagForm({
   if (pendingBagId) {
     return (
       <div className="card space-y-4 rounded-sm p-6">
-        <p className="text-sm text-paper/80">
-          Le sac a été créé. Une ou plusieurs commandes en attente correspondent à ce modèle
-          (« Sac à commander ») — veux-tu relier ce sac à l&apos;une d&apos;elles ?
-        </p>
+        <p className="text-sm text-paper/80">Le sac a été créé.</p>
+        {skuWarning && <p className="text-sm text-red-400">SKU : {skuWarning}</p>}
+        {matchingOrders.length > 0 && (
+          <p className="text-sm text-paper/80">
+            Une ou plusieurs commandes en attente correspondent à ce modèle (« Sac à commander »)
+            — veux-tu relier ce sac à l&apos;une d&apos;elles ?
+          </p>
+        )}
         <div className="space-y-2">
           {matchingOrders.map((o) => (
             <div key={o.id} className="flex items-center justify-between rounded-sm border border-line/60 px-3 py-2">
@@ -152,27 +161,24 @@ export function NewBagForm({
         </Select>
       </FormRow>
 
-      <FormRow label="A la reception, ce sac est...">
-        <div className="grid grid-cols-2 gap-3">
-          {(["disassemble", "assemble"] as const).map((option) => (
-            <label
-              key={option}
-              className={`flex cursor-pointer items-start gap-2 rounded-sm border px-3 py-2 text-sm ${
-                saleType === option ? "border-gold/60 bg-gold/5" : "border-line/60"
-              }`}
-            >
-              <input
-                type="radio"
-                name="sale_type"
-                value={option}
-                checked={saleType === option}
-                onChange={() => setSaleType(option)}
-                className="mt-0.5 accent-gold"
-              />
-              <span className="text-paper/70">{SALE_TYPE_LABELS[option]}</span>
-            </label>
+      <FormRow label="SKU a attribuer (optionnel)">
+        <Input
+          name="sku"
+          list="new-bag-sku-options"
+          value={skuInput}
+          onChange={(e) => setSkuInput(e.target.value)}
+          placeholder="PKPOP35 — laisser vide si pas encore connu"
+        />
+        <datalist id="new-bag-sku-options">
+          {skuOptions.map((o) => (
+            <option key={o.sku} value={o.sku} label={o.edition ?? undefined} />
           ))}
-        </div>
+        </datalist>
+        <p className="mt-1 text-xs text-paper/40">
+          Si renseigne, le sac devient directement un produit fini avec ses etapes de fabrication.
+          Sinon il reste en pieces detachees, en attente, et le SKU pourra etre attribue plus tard
+          depuis sa fiche.
+        </p>
       </FormRow>
 
       <div className="grid grid-cols-2 gap-4">

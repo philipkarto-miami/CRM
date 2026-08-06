@@ -12,7 +12,12 @@ function str(formData: FormData, key: string) {
 
 export async function createBag(
   formData: FormData
-): Promise<{ id?: string; error?: string; matchingOrders?: { id: string; order_name: string }[] }> {
+): Promise<{
+  id?: string;
+  error?: string;
+  skuWarning?: string;
+  matchingOrders?: { id: string; order_name: string }[];
+}> {
   const supabase = createClient();
   const {
     data: { user },
@@ -26,10 +31,11 @@ export async function createBag(
   const invoiceNumber = str(formData, "invoice_number");
   const sizeVerified = formData.get("size_verified") === "on";
   const canvasVerified = formData.get("canvas_verified") === "on";
-  // Choix fait a la reception : "assemble" = ce sac deviendra un produit
-  // fini (un SKU lui sera attribue ensuite), "disassemble" = il reste en
-  // pieces detachees, en attente, tant qu'aucune vente ne le reclame.
-  const saleType = str(formData, "sale_type") === "assemble" ? "assemble" : "disassemble";
+  // SKU optionnel a la reception : s'il est renseigne, le sac devient
+  // directement un produit fini (voir assignSku ci-dessous). Sinon il reste
+  // en pieces detachees, en attente, jusqu'a attribution ulterieure.
+  const skuInput = str(formData, "sku")?.trim() || null;
+  const saleType = skuInput ? "assemble" : "disassemble";
 
   // Tous les champs du formulaire de creation sont obligatoires (verification
   // cote serveur en complement du bouton grise cote client).
@@ -84,6 +90,15 @@ export async function createBag(
 
   revalidatePath("/bags");
 
+  // Si un SKU a ete renseigne, on l'attribue tout de suite (meme logique
+  // que depuis le stock) : ca pose le sku, configure les etapes de
+  // fabrication propres a ce SKU et fait avancer la phase automatiquement.
+  let skuWarning: string | undefined;
+  if (skuInput) {
+    const assignResult = await assignSku(data.id, skuInput);
+    if (assignResult.error) skuWarning = `Sac cree, mais SKU non applique : ${assignResult.error}`;
+  }
+
   // Des commandes en statut "sac a commander" attendent peut-etre justement
   // ce modele : on les signale (rattachement propose, pas automatique).
   const { data: matchingOrders } = await supabase
@@ -93,7 +108,7 @@ export async function createBag(
     .eq("desired_model_id", modelId)
     .is("bag_id", null);
 
-  return { id: data.id, matchingOrders: matchingOrders ?? [] };
+  return { id: data.id, skuWarning, matchingOrders: matchingOrders ?? [] };
 }
 
 export async function updateBag(bagId: string, formData: FormData) {
