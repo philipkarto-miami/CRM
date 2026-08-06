@@ -111,8 +111,8 @@ export function SkuStepsEditor({
                 <Input
                   value={notes[code] ?? ""}
                   onChange={(e) => setNotes((prev) => ({ ...prev, [code]: e.target.value }))}
-                  placeholder="Note (ex: sous-traite, 3 & 6)"
-                  className="w-56 py-1 text-xs"
+                  placeholder="Note"
+                  className="w-28 shrink-0 py-1 text-xs"
                 />
                 <input type="hidden" name={`step_${code}`} value={notes[code]?.trim() || index + 1} />
                 <button
