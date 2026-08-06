@@ -3,25 +3,82 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { SKU_STEP_COLUMNS } from "@/lib/constants";
+import type { StagePhase } from "@/types/database";
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
   return v ? String(v) : null;
 }
 
-// Lit les 13 champs d'etapes du formulaire et reconstruit l'objet steps du
-// catalogue (case vide = etape ignoree, nombre = position, texte = note de
-// sous-traitance).
+// Lit tous les champs "step_<CODE>" presents dans le formulaire (le nombre
+// d'etapes n'est plus fixe : de nouvelles etapes peuvent avoir ete creees a
+// la volee depuis l'editeur de SKU). Case vide/absente = etape ignoree,
+// nombre = position dans la sequence, texte = note de sous-traitance.
 function readSteps(formData: FormData): Record<string, number | string> {
   const steps: Record<string, number | string> = {};
-  for (const { code } of SKU_STEP_COLUMNS) {
-    const raw = str(formData, `step_${code}`);
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("step_") || typeof value !== "string") continue;
+    const raw = value.trim();
     if (!raw) continue;
+    const code = key.slice("step_".length);
     const n = Number(raw);
-    steps[code] = Number.isFinite(n) && raw.trim() === String(n) ? n : raw;
+    steps[code] = Number.isFinite(n) && raw === String(n) ? n : raw;
   }
   return steps;
+}
+
+// Cree une nouvelle etape de fabrication (globale, disponible pour tous les
+// SKU ensuite) depuis l'editeur du catalogue. Reserve aux admins (meme regle
+// que la page Reglages > Etapes de fabrication).
+export async function createCustomStep(
+  name: string,
+  phase: StagePhase
+): Promise<{ error?: string; code?: string; id?: string }> {
+  const supabase = createClient();
+  const cleanName = name.trim();
+  if (!cleanName) return { error: "Le nom de l'etape est obligatoire" };
+
+  const baseCode = cleanName
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  const { data: existing } = await supabase.from("production_stages").select("catalog_column");
+  const usedCodes = new Set((existing ?? []).map((s) => s.catalog_column).filter(Boolean));
+  let code = baseCode || "ETAPE";
+  let suffix = 2;
+  while (usedCodes.has(code)) {
+    code = `${baseCode}_${suffix}`;
+    suffix += 1;
+  }
+
+  const { data: maxOrder } = await supabase
+    .from("production_stages")
+    .select("order_index")
+    .eq("phase", phase)
+    .order("order_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data, error } = await supabase
+    .from("production_stages")
+    .insert({
+      phase,
+      name: cleanName,
+      order_index: (maxOrder?.order_index ?? 0) + 1,
+      catalog_column: code,
+      is_active: true,
+    })
+    .select("id")
+    .single();
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/catalogue");
+  revalidatePath("/settings/stages");
+  return { code, id: data.id };
 }
 
 export async function createSkuCatalogEntry(formData: FormData): Promise<void> {

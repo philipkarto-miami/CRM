@@ -5,12 +5,21 @@ import { PageHeader } from "@/components/PageHeader";
 import { FormRow, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
-import { SKU_STEP_COLUMNS } from "@/lib/constants";
+import { SkuStepsEditor } from "@/components/SkuStepsEditor";
 import type { SkuCatalog } from "@/types/database";
 
 export default async function SkuCatalogDetailPage({ params }: { params: { sku: string } }) {
   const supabase = createClient();
-  const { data: entry } = await supabase.from("sku_catalog").select("*").eq("sku", params.sku).single();
+  const [{ data: entry }, { data: stages }] = await Promise.all([
+    supabase.from("sku_catalog").select("*").eq("sku", params.sku).single(),
+    supabase
+      .from("production_stages")
+      .select("name, catalog_column, phase, order_index")
+      .not("catalog_column", "is", null)
+      .eq("is_active", true)
+      .order("phase")
+      .order("order_index"),
+  ]);
 
   if (!entry) notFound();
 
@@ -57,17 +66,10 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
               </FormRow>
 
               <p className="eyebrow pt-2">Etapes de fabrication pour ce SKU</p>
-              <p className="text-xs text-paper/40">
-                Laisse une case vide si l&apos;etape ne s&apos;applique pas a ce SKU. Sinon, indique sa
-                position dans la sequence (1, 2, 3...) ou un texte pour une sous-traitance (ex "3 & 6").
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                {SKU_STEP_COLUMNS.map(({ code, label }) => (
-                  <FormRow key={code} label={label}>
-                    <Input name={`step_${code}`} defaultValue={typedEntry.steps?.[code] ?? ""} placeholder="—" />
-                  </FormRow>
-                ))}
-              </div>
+              <SkuStepsEditor
+                availableSteps={(stages ?? []).map((s) => ({ code: s.catalog_column as string, name: s.name }))}
+                initialSteps={typedEntry.steps ?? {}}
+              />
 
               <Button type="submit">Enregistrer</Button>
             </form>
