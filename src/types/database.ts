@@ -10,6 +10,7 @@ export type SaleType = "assemble" | "disassemble";
 export type StagePhase =
   | "reception"
   | "disassembly"
+  | "stock_propre"
   | "manufacturing"
   | "quality_control"
   | "wrapping"

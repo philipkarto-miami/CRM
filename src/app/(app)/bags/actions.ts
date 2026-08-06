@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { StagePhase, StageStatus } from "@/types/database";
+import type { StageStatus } from "@/types/database";
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
@@ -116,7 +116,9 @@ export async function updateBag(bagId: string, formData: FormData) {
     sale_type: str(formData, "sale_type") || "disassemble",
     invoice_number: str(formData, "invoice_number"),
     delivery_date: str(formData, "delivery_date"),
-    current_phase: str(formData, "current_phase") as StagePhase,
+    // current_phase n'est plus modifiable a la main : elle avance seule
+    // (trigger advance_bag_phase) quand toutes les etapes d'une phase sont
+    // cochees. Voir migration 0008.
     notes: str(formData, "notes"),
   };
 
@@ -160,6 +162,19 @@ export async function assignSku(
   }
 
   const steps = (catalogEntry.steps ?? {}) as Record<string, number | string>;
+
+  // On pose d'abord le SKU sur le sac (avant de toucher aux etapes) : le
+  // trigger d'avancement automatique des phases lit bags.sku pour decider si
+  // un sac en "stock propre" doit repartir en fabrication, il doit donc voir
+  // la valeur a jour au moment ou les lignes de bag_stage_progress bougent.
+  const { error: bagError } = await supabase
+    .from("bags")
+    // Attribuer un SKU fait de ce sac un produit fini : on bascule sale_type
+    // sur "assemble" (meme s'il avait ete recu comme "piece detachees").
+    .update({ sku: catalogEntry.sku, sku_edition: catalogEntry.edition, sale_type: "assemble" })
+    .eq("id", bagId);
+
+  if (bagError) return { error: bagError.message };
 
   const [{ data: stages }, { data: existingProgress }] = await Promise.all([
     supabase.from("production_stages").select("*").eq("is_active", true),
@@ -232,14 +247,9 @@ export async function assignSku(
     if (error) return { error: error.message };
   }
 
-  const { error: bagError } = await supabase
-    .from("bags")
-    // Attribuer un SKU fait de ce sac un produit fini : on bascule sale_type
-    // sur "assemble" (meme s'il avait ete recu comme "piece detachees").
-    .update({ sku: catalogEntry.sku, sku_edition: catalogEntry.edition, sale_type: "assemble" })
-    .eq("id", bagId);
-
-  if (bagError) return { error: bagError.message };
+  // Filet de securite : si aucune ligne de bag_stage_progress n'a bouge
+  // (cas rare), on force quand meme la verification du passage de phase.
+  await supabase.rpc("advance_bag_phase", { p_bag_id: bagId });
 
   revalidatePath(`/bags/${bagId}`);
   revalidatePath("/bags");

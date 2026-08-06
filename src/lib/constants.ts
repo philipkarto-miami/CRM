@@ -2,17 +2,22 @@ import type { OrderStatus, PaymentStatus, StagePhase, StageStatus, UserRole } fr
 
 export const PHASE_LABELS: Record<StagePhase, string> = {
   reception: "Reception",
-  disassembly: "Desassemblage",
-  manufacturing: "Fabrication",
-  quality_control: "Controle qualite",
-  wrapping: "Emballage",
-  shipping: "Expedition",
+  disassembly: "A desassembler",
+  stock_propre: "Stock propre (en attente d'un SKU)",
+  manufacturing: "A fabriquer",
+  quality_control: "A controler",
+  wrapping: "A emballer",
+  shipping: "A expedier",
   accounting: "Comptabilite",
 };
 
+// Ordre du pipeline. stock_propre est une phase d'attente (pas d'etapes a
+// cocher) : le sac y reste jusqu'a ce qu'un SKU lui soit attribue, qui le
+// fait automatiquement repartir en fabrication.
 export const PHASE_ORDER: StagePhase[] = [
   "reception",
   "disassembly",
+  "stock_propre",
   "manufacturing",
   "quality_control",
   "wrapping",
