@@ -2,15 +2,15 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateSkuCatalogEntry, deleteSkuCatalogEntry, uploadSkuPhoto } from "../actions";
 import { PageHeader } from "@/components/PageHeader";
-import { FormRow, Input, Textarea } from "@/components/ui/Field";
+import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
-import type { SkuCatalog } from "@/types/database";
+import type { BagModel, SkuCatalog } from "@/types/database";
 
 export default async function SkuCatalogDetailPage({ params }: { params: { sku: string } }) {
   const supabase = createClient();
-  const [{ data: entry }, { data: stages }] = await Promise.all([
+  const [{ data: entry }, { data: stages }, { data: models }] = await Promise.all([
     supabase.from("sku_catalog").select("*").eq("sku", params.sku).single(),
     supabase
       .from("production_stages")
@@ -19,6 +19,7 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
       .eq("is_active", true)
       .order("phase")
       .order("order_index"),
+    supabase.from("bag_models").select("*, brands(name)").order("sort_order"),
   ]);
 
   if (!entry) notFound();
@@ -55,6 +56,16 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
             <form action={updateWithSku} className="space-y-4">
               <FormRow label="Edition">
                 <Input name="edition" defaultValue={typedEntry.edition ?? ""} placeholder="PK.03" />
+              </FormRow>
+              <FormRow label="Modele fournisseur transforme (un SKU = un seul modele/taille)">
+                <Select name="bag_model_id" required defaultValue={typedEntry.bag_model_id ?? ""}>
+                  <option value="">—</option>
+                  {(models as (BagModel & { brands: { name: string } | null })[] | null)?.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.brands?.name} {m.name} {m.base_size}
+                    </option>
+                  ))}
+                </Select>
               </FormRow>
               <FormRow label="Description">
                 <Textarea

@@ -16,19 +16,31 @@ export async function createOrder(formData: FormData) {
   } = await supabase.auth.getUser();
 
   const bagId = str(formData, "bag_id") || null;
-  const desiredModelId = str(formData, "desired_model_id") || null;
+  const desiredSku = str(formData, "desired_sku") || null;
 
   // Une commande a soit un sac deja en stock, soit (si aucun sac disponible)
-  // un modele souhaite : elle part alors dans la colonne "sac a commander"
-  // en attendant qu'un sac correspondant arrive.
-  if (!bagId && !desiredModelId) {
-    redirect(`/orders/new?error=${encodeURIComponent("Choisis un sac en stock ou un modele souhaite")}`);
+  // un modele PK (SKU) souhaite : elle part alors dans la colonne "sac a
+  // commander" en attendant qu'un sac correspondant arrive. Le modele
+  // fournisseur souhaite est derive du SKU (un SKU = un seul modele).
+  if (!bagId && !desiredSku) {
+    redirect(`/orders/new?error=${encodeURIComponent("Choisis un sac en stock ou un modele PK souhaite")}`);
+  }
+
+  let desiredModelId: string | null = null;
+  if (!bagId && desiredSku) {
+    const { data: skuEntry } = await supabase
+      .from("sku_catalog")
+      .select("bag_model_id")
+      .eq("sku", desiredSku)
+      .maybeSingle();
+    desiredModelId = skuEntry?.bag_model_id ?? null;
   }
 
   const payload = {
     order_name: str(formData, "order_name"),
     bag_id: bagId,
     desired_model_id: bagId ? null : desiredModelId,
+    desired_sku: bagId ? null : desiredSku,
     customer_id: str(formData, "customer_id") || null,
     sale_type: str(formData, "sale_type") || "assemble",
     sale_price: str(formData, "sale_price") ? Number(str(formData, "sale_price")) : null,

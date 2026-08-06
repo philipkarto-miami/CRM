@@ -92,6 +92,9 @@ export async function createSkuCatalogEntry(formData: FormData): Promise<void> {
     sku,
     edition: str(formData, "edition"),
     description: str(formData, "description"),
+    // Le modele PK (ce SKU) transforme toujours un seul modele fournisseur
+    // precis : c'est ce qui permettra a la vente de retrouver le bon stock.
+    bag_model_id: str(formData, "bag_model_id"),
     steps: readSteps(formData),
   };
 
@@ -110,6 +113,7 @@ export async function updateSkuCatalogEntry(sku: string, formData: FormData) {
   const payload = {
     edition: str(formData, "edition"),
     description: str(formData, "description"),
+    bag_model_id: str(formData, "bag_model_id"),
     steps: readSteps(formData),
   };
 

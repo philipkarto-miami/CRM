@@ -25,8 +25,11 @@ export default async function OrdersPage() {
   const usedBagIds = new Set((linkedBagIds ?? []).map((o) => o.bag_id));
   const { data: availableBags } = await supabase
     .from("bags")
-    .select("id, serial_number, model_label, model_id");
-  const availableByModel = new Map<string, { id: string; serial_number: string; model_label: string }[]>();
+    .select("id, serial_number, model_label, model_id, sku");
+  const availableByModel = new Map<
+    string,
+    { id: string; serial_number: string; model_label: string; sku: string | null }[]
+  >();
   for (const b of availableBags ?? []) {
     if (usedBagIds.has(b.id) || !b.model_id) continue;
     const list = availableByModel.get(b.model_id) ?? [];
@@ -71,13 +74,23 @@ export default async function OrdersPage() {
                     .filter(Boolean)
                     .join(" ")
                 : null;
-              const matchingBags = order.desired_model_id ? availableByModel.get(order.desired_model_id) ?? [] : [];
+              // Un sac deja affecte a un autre SKU que celui souhaite n'est
+              // pas un vrai match (le SKU determine une transformation
+              // precise) : on ne propose que les sacs libres (sans SKU) ou
+              // deja sur le bon SKU.
+              const matchingBags = order.desired_model_id
+                ? (availableByModel.get(order.desired_model_id) ?? []).filter(
+                    (b) => !order.desired_sku || !b.sku || b.sku === order.desired_sku
+                  )
+                : [];
               return (
                 <OrderRow
                   key={order.id}
                   order={order}
                   bagLabel={order.bags ? `${order.bags.serial_number} — ${order.bags.model_label}` : null}
-                  desiredModelLabel={desiredLabel}
+                  desiredModelLabel={
+                    order.desired_sku ? `${order.desired_sku} (${desiredLabel ?? "?"})` : desiredLabel
+                  }
                   matchingBags={matchingBags}
                   customerName={order.customers?.full_name ?? "-"}
                 />

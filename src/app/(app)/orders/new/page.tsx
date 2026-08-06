@@ -3,28 +3,40 @@ import { createOrder } from "../actions";
 import { PageHeader } from "@/components/PageHeader";
 import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
-import { ModelBagPicker } from "@/components/ModelBagPicker";
-import type { BagModel, Customer } from "@/types/database";
+import { PkModelBagPicker } from "@/components/PkModelBagPicker";
+import type { BagModel, Customer, SkuCatalog } from "@/types/database";
 
 export default async function NewOrderPage({ searchParams }: { searchParams: { error?: string } }) {
   const supabase = createClient();
-  const [{ data: allBags }, { data: linkedBagIds }, { data: customers }, { data: models }] = await Promise.all([
-    supabase.from("bags").select("id, serial_number, model_id, sku").order("serial_number"),
-    supabase.from("orders").select("bag_id").not("bag_id", "is", null),
-    supabase.from("customers").select("id, full_name").order("full_name"),
-    supabase.from("bag_models").select("*, brands(name)").order("sort_order"),
-  ]);
+  const [{ data: allBags }, { data: linkedBagIds }, { data: customers }, { data: skuEntries }, { data: models }] =
+    await Promise.all([
+      supabase.from("bags").select("id, serial_number, model_id, sku").order("serial_number"),
+      supabase.from("orders").select("bag_id").not("bag_id", "is", null),
+      supabase.from("customers").select("id, full_name").order("full_name"),
+      supabase.from("sku_catalog").select("sku, edition, bag_model_id").order("sku"),
+      supabase.from("bag_models").select("*, brands(name)"),
+    ]);
 
   // Un sac deja rattache a une autre commande n'est plus "disponible" a la
   // vente : le SKU garantissant un modele unique, on filtre juste par
-  // modele une fois choisi (voir ModelBagPicker).
+  // modele fournisseur une fois le modele PK choisi (voir PkModelBagPicker).
   const usedBagIds = new Set((linkedBagIds ?? []).map((o) => o.bag_id));
   const availableBags = (allBags ?? []).filter((b) => !usedBagIds.has(b.id));
 
-  const modelOptions = ((models as (BagModel & { brands: { name: string } | null })[] | null) ?? []).map((m) => ({
-    id: m.id,
-    label: [m.brands?.name, m.name, m.base_size].filter(Boolean).join(" "),
-  }));
+  const modelLabelById = new Map(
+    ((models as (BagModel & { brands: { name: string } | null })[] | null) ?? []).map((m) => [
+      m.id,
+      [m.brands?.name, m.name, m.base_size].filter(Boolean).join(" "),
+    ])
+  );
+
+  const pkModelOptions = ((skuEntries as Pick<SkuCatalog, "sku" | "edition" | "bag_model_id">[] | null) ?? []).map(
+    (s) => ({
+      sku: s.sku,
+      bagModelId: s.bag_model_id,
+      label: `${s.sku} — ${s.edition ?? "?"} (${s.bag_model_id ? modelLabelById.get(s.bag_model_id) ?? "modele inconnu" : "modele non renseigne"})`,
+    })
+  );
 
   return (
     <div className="max-w-2xl">
@@ -50,11 +62,12 @@ export default async function NewOrderPage({ searchParams }: { searchParams: { e
           </Select>
         </FormRow>
 
-        <ModelBagPicker models={modelOptions} bags={availableBags} />
+        <PkModelBagPicker pkModels={pkModelOptions} bags={availableBags} />
         <p className="text-xs text-paper/40">
-          Un SKU ne correspond qu&apos;a un seul modele de sac : en choisissant le modele vendu,
-          l&apos;outil ne propose que les sacs en stock de ce modele (produits finis avec leur SKU, ou
-          encore en pieces detachees). Si aucun ne convient, la commande part en « Sac à commander ».
+          Un modele PK (SKU) correspond toujours a un seul modele de sac fournisseur : en le
+          choisissant, l&apos;outil ne propose que les sacs en stock compatibles (produits finis avec
+          ce SKU, ou encore en pieces detachees de ce modele). Si aucun ne convient, la commande part
+          en « Sac à commander ».
         </p>
 
         <div className="grid grid-cols-3 gap-4">
