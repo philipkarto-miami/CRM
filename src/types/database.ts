@@ -17,7 +17,7 @@ export type StagePhase =
   | "accounting";
 export type StageStatus = "a_faire" | "en_cours" | "termine" | "bloque";
 export type PaymentStatus = "en_attente" | "partiel" | "paye";
-export type OrderStatus = "recu" | "en_traitement" | "expedie" | "livre" | "annule";
+export type OrderStatus = "recu" | "en_traitement" | "expedie" | "livre" | "annule" | "sac_a_commander";
 
 export interface Profile {
   id: string;
@@ -82,6 +82,8 @@ export interface SkuCatalog {
   id: string;
   sku: string;
   edition: string | null;
+  description: string | null;
+  photo_path: string | null;
   steps: SkuCatalogSteps;
   created_at: string;
   updated_at: string;
@@ -139,6 +141,10 @@ export interface Order {
   id: string;
   order_name: string;
   bag_id: string | null;
+  // Modele souhaite quand la commande n'a pas encore de sac lie (statut
+  // "sac_a_commander") : permet de suggerer un rattachement quand un sac de
+  // ce modele arrive en stock.
+  desired_model_id: string | null;
   customer_id: string | null;
   sale_type: SaleType;
   sale_price: number | null;

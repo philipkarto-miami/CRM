@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { updateOrder, deleteOrder } from "@/app/(app)/orders/actions";
+import { updateOrder, deleteOrder, linkOrderToBag } from "@/app/(app)/orders/actions";
 import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/constants";
 import { formatDate, formatMoney } from "@/lib/utils";
 import type { Order, OrderStatus, PaymentStatus } from "@/types/database";
@@ -9,10 +9,14 @@ import type { Order, OrderStatus, PaymentStatus } from "@/types/database";
 export function OrderRow({
   order,
   bagLabel,
+  desiredModelLabel,
+  matchingBags,
   customerName,
 }: {
   order: Order;
-  bagLabel: string;
+  bagLabel: string | null;
+  desiredModelLabel: string | null;
+  matchingBags: { id: string; serial_number: string; model_label: string }[];
   customerName: string;
 }) {
   const [isPending, startTransition] = useTransition();
@@ -32,10 +36,37 @@ export function OrderRow({
     });
   }
 
+  function link(bagId: string) {
+    startTransition(() => {
+      linkOrderToBag(order.id, bagId);
+    });
+  }
+
   return (
     <tr className="border-b border-line/60 last:border-0">
       <td className="px-4 py-3 text-paper/80">{order.order_name}</td>
-      <td className="px-4 py-3 text-paper/60">{bagLabel}</td>
+      <td className="px-4 py-3 text-paper/60">
+        {bagLabel ?? (
+          <span>
+            <span className="text-paper/40">Souhaite : </span>
+            {desiredModelLabel ?? "-"}
+            {matchingBags.length > 0 && (
+              <span className="ml-2 space-x-1">
+                {matchingBags.map((b) => (
+                  <button
+                    key={b.id}
+                    disabled={isPending}
+                    onClick={() => link(b.id)}
+                    className="rounded-sm border border-gold/40 px-2 py-0.5 text-xs text-gold hover:bg-gold/10"
+                  >
+                    Relier {b.serial_number}
+                  </button>
+                ))}
+              </span>
+            )}
+          </span>
+        )}
+      </td>
       <td className="px-4 py-3 text-paper/60">{customerName}</td>
       <td className="px-4 py-3 text-paper/60">{formatMoney(order.sale_price)}</td>
       <td className="px-4 py-3">

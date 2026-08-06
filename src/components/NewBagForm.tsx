@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createBag, uploadBagPhoto } from "@/app/(app)/bags/actions";
+import { linkOrderToBag } from "@/app/(app)/orders/actions";
 import { FormRow, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { PhotoPickerInline } from "@/components/PhotoPickerInline";
+import { SALE_TYPE_LABELS } from "@/lib/constants";
 import type { BagModel, Supplier } from "@/types/database";
 
 type ModelWithBrand = BagModel & { brands: { name: string } | null };
@@ -41,6 +43,9 @@ export function NewBagForm({
   const [sizeOk, setSizeOk] = useState(false);
   const [canvasOk, setCanvasOk] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [saleType, setSaleType] = useState<"assemble" | "disassemble">("disassemble");
+  const [pendingBagId, setPendingBagId] = useState<string | null>(null);
+  const [matchingOrders, setMatchingOrders] = useState<{ id: string; order_name: string }[]>([]);
 
   const canSubmit =
     modelId !== "" &&
@@ -73,8 +78,53 @@ export function NewBagForm({
         await uploadBagPhoto(result.id, photoFd);
       }
 
+      if (result.matchingOrders && result.matchingOrders.length > 0) {
+        // Des commandes attendaient justement ce modele : on propose le
+        // rattachement avant de continuer, plutot que de l'imposer.
+        setPendingBagId(result.id);
+        setMatchingOrders(result.matchingOrders);
+        return;
+      }
+
       router.push(`/bags/${result.id}`);
     });
+  }
+
+  function handleLink(orderId: string) {
+    if (!pendingBagId) return;
+    startTransition(async () => {
+      await linkOrderToBag(orderId, pendingBagId);
+      router.push(`/bags/${pendingBagId}`);
+    });
+  }
+
+  if (pendingBagId) {
+    return (
+      <div className="card space-y-4 rounded-sm p-6">
+        <p className="text-sm text-paper/80">
+          Le sac a été créé. Une ou plusieurs commandes en attente correspondent à ce modèle
+          (« Sac à commander ») — veux-tu relier ce sac à l&apos;une d&apos;elles ?
+        </p>
+        <div className="space-y-2">
+          {matchingOrders.map((o) => (
+            <div key={o.id} className="flex items-center justify-between rounded-sm border border-line/60 px-3 py-2">
+              <span className="text-sm text-paper/70">{o.order_name}</span>
+              <Button type="button" disabled={isPending} onClick={() => handleLink(o.id)}>
+                Relier cette commande
+              </Button>
+            </div>
+          ))}
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={isPending}
+          onClick={() => router.push(`/bags/${pendingBagId}`)}
+        >
+          Ignorer et voir la fiche du sac
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -100,6 +150,29 @@ export function NewBagForm({
             </option>
           ))}
         </Select>
+      </FormRow>
+
+      <FormRow label="A la reception, ce sac est...">
+        <div className="grid grid-cols-2 gap-3">
+          {(["disassemble", "assemble"] as const).map((option) => (
+            <label
+              key={option}
+              className={`flex cursor-pointer items-start gap-2 rounded-sm border px-3 py-2 text-sm ${
+                saleType === option ? "border-gold/60 bg-gold/5" : "border-line/60"
+              }`}
+            >
+              <input
+                type="radio"
+                name="sale_type"
+                value={option}
+                checked={saleType === option}
+                onChange={() => setSaleType(option)}
+                className="mt-0.5 accent-gold"
+              />
+              <span className="text-paper/70">{SALE_TYPE_LABELS[option]}</span>
+            </label>
+          ))}
+        </div>
       </FormRow>
 
       <div className="grid grid-cols-2 gap-4">

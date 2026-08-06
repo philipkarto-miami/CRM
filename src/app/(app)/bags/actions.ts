@@ -12,7 +12,7 @@ function str(formData: FormData, key: string) {
 
 export async function createBag(
   formData: FormData
-): Promise<{ id?: string; error?: string }> {
+): Promise<{ id?: string; error?: string; matchingOrders?: { id: string; order_name: string }[] }> {
   const supabase = createClient();
   const {
     data: { user },
@@ -26,6 +26,10 @@ export async function createBag(
   const invoiceNumber = str(formData, "invoice_number");
   const sizeVerified = formData.get("size_verified") === "on";
   const canvasVerified = formData.get("canvas_verified") === "on";
+  // Choix fait a la reception : "assemble" = ce sac deviendra un produit
+  // fini (un SKU lui sera attribue ensuite), "disassemble" = il reste en
+  // pieces detachees, en attente, tant qu'aucune vente ne le reclame.
+  const saleType = str(formData, "sale_type") === "assemble" ? "assemble" : "disassemble";
 
   // Tous les champs du formulaire de creation sont obligatoires (verification
   // cote serveur en complement du bouton grise cote client).
@@ -68,6 +72,7 @@ export async function createBag(
     factory_date: factoryDate,
     delivery_date: deliveryDate,
     invoice_number: invoiceNumber,
+    sale_type: saleType,
     created_by: user?.id ?? null,
   };
 
@@ -78,7 +83,17 @@ export async function createBag(
   }
 
   revalidatePath("/bags");
-  return { id: data.id };
+
+  // Des commandes en statut "sac a commander" attendent peut-etre justement
+  // ce modele : on les signale (rattachement propose, pas automatique).
+  const { data: matchingOrders } = await supabase
+    .from("orders")
+    .select("id, order_name")
+    .eq("status", "sac_a_commander")
+    .eq("desired_model_id", modelId)
+    .is("bag_id", null);
+
+  return { id: data.id, matchingOrders: matchingOrders ?? [] };
 }
 
 export async function updateBag(bagId: string, formData: FormData) {
@@ -160,8 +175,17 @@ export async function assignSku(
   for (const stage of stages ?? []) {
     const existing = existingByStage.get(stage.id);
 
-    // Etape toujours applicable (pas pilotee par le SKU) : on n'y touche pas.
-    if (!stage.catalog_column) continue;
+    // Etape toujours applicable (pas pilotee par le SKU) : on s'assure juste
+    // qu'elle existe. Un sac recu en "pieces detachees, en attente" n'avait
+    // ete seede qu'avec reception + desassemblage ; attribuer un SKU en fait
+    // desormais un produit fini, il faut donc completer le reste du parcours
+    // (controle qualite, emballage, expedition, comptabilite...).
+    if (!stage.catalog_column) {
+      if (!existing) {
+        toInsert.push({ bag_id: bagId, stage_id: stage.id, status: "a_faire" });
+      }
+      continue;
+    }
 
     const raw = steps[stage.catalog_column];
     // 0 est traite exactement comme une case vide : l'etape ne s'applique
@@ -210,7 +234,9 @@ export async function assignSku(
 
   const { error: bagError } = await supabase
     .from("bags")
-    .update({ sku: catalogEntry.sku, sku_edition: catalogEntry.edition })
+    // Attribuer un SKU fait de ce sac un produit fini : on bascule sale_type
+    // sur "assemble" (meme s'il avait ete recu comme "piece detachees").
+    .update({ sku: catalogEntry.sku, sku_edition: catalogEntry.edition, sale_type: "assemble" })
     .eq("id", bagId);
 
   if (bagError) return { error: bagError.message };

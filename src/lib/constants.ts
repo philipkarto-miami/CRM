@@ -28,6 +28,7 @@ export const STAGE_STATUS_LABELS: Record<StageStatus, string> = {
 };
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  sac_a_commander: "Sac a commander",
   recu: "Recu",
   en_traitement: "En traitement",
   expedie: "Expedie",
@@ -49,6 +50,26 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 export const SALE_TYPE_LABELS = {
-  assemble: "Assemble",
-  disassemble: "Desassemble",
+  assemble: "Produit fini (SKU a attribuer)",
+  disassemble: "Pieces detachees (en attente)",
 };
+
+// Colonnes du catalogue SKU (fichier maitre de l'atelier), dans l'ordre du
+// fichier source (AS a BE). Une case vide = etape ignoree pour ce SKU ; un
+// nombre = position dans la sequence de fabrication ; du texte (ex "3 & 6")
+// = etape sous-traitee.
+export const SKU_STEP_COLUMNS: { code: string; label: string }[] = [
+  { code: "RECEPTION", label: "Reception" },
+  { code: "DISASSEMBLING", label: "Desassemblage / nettoyage / fermeture eclair" },
+  { code: "EMBROIDERY_SIDE", label: "Broderie cote" },
+  { code: "BANDS", label: "Pose des bandes" },
+  { code: "EMBROIDERY", label: "Broderie" },
+  { code: "HANDLES", label: "Pose des anses" },
+  { code: "LINING", label: "Doublure" },
+  { code: "CLOSING", label: "Fermeture" },
+  { code: "PAINTING", label: "Peinture" },
+  { code: "SHOULDER_STRAP", label: "Bandouliere" },
+  { code: "PATCH", label: "Patch" },
+  { code: "SUBCONTRACT_1", label: "Sous-traitance (1)" },
+  { code: "SUBCONTRACT_2", label: "Sous-traitance (2)" },
+];
