@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
@@ -10,13 +11,18 @@ function str(formData: FormData, key: string) {
 
 export async function createCustomer(formData: FormData) {
   const supabase = createClient();
-  await supabase.from("customers").insert({
+  const { error } = await supabase.from("customers").insert({
     full_name: str(formData, "full_name"),
     email: str(formData, "email"),
     phone: str(formData, "phone"),
     address: str(formData, "address"),
     notes: str(formData, "notes"),
   });
+
+  if (error) {
+    redirect(`/customers?error=${encodeURIComponent(error.message)}`);
+  }
+
   revalidatePath("/customers");
 }
 

@@ -3,7 +3,7 @@
 import { useTransition } from "react";
 import { updateOrder, deleteOrder, linkOrderToBag } from "@/app/(app)/orders/actions";
 import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/constants";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import type { Order, OrderStatus, PaymentStatus } from "@/types/database";
 
 export function OrderRow({
@@ -68,7 +68,6 @@ export function OrderRow({
         )}
       </td>
       <td className="px-4 py-3 text-paper/60">{customerName}</td>
-      <td className="px-4 py-3 text-paper/60">{formatMoney(order.sale_price)}</td>
       <td className="px-4 py-3">
         <select
           disabled={isPending}

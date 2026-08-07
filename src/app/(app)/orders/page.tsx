@@ -60,7 +60,6 @@ export default async function OrdersPage() {
               <th className="px-4 py-3">Commande</th>
               <th className="px-4 py-3">Sac / modele souhaite</th>
               <th className="px-4 py-3">Client</th>
-              <th className="px-4 py-3">Prix</th>
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3">Paiement</th>
               <th className="px-4 py-3">Date</th>
@@ -98,7 +97,7 @@ export default async function OrdersPage() {
             })}
             {(!orders || orders.length === 0) && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-paper/40">
+                <td colSpan={7} className="px-4 py-10 text-center text-paper/40">
                   Aucune commande enregistree.
                 </td>
               </tr>

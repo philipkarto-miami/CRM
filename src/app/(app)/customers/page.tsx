@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/Button";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import type { Customer } from "@/types/database";
 
-export default async function CustomersPage() {
+export default async function CustomersPage({ searchParams }: { searchParams: { error?: string } }) {
   const supabase = createClient();
   const { data: customers } = await supabase.from("customers").select("*").order("full_name");
 
   return (
     <div>
       <PageHeader eyebrow="Clients" title="Carnet clients" />
+
+      {searchParams?.error && <p className="mb-4 text-sm text-danger">Erreur : {searchParams.error}</p>}
 
       <div className="grid grid-cols-3 gap-8">
         <div className="col-span-2">
