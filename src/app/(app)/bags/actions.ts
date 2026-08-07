@@ -283,12 +283,26 @@ export async function updateStageProgress(
     data: { user },
   } = await supabase.auth.getUser();
 
+  // blocked_at memorise depuis quand l'etape est bloquee (utilise par le
+  // tableau de bord) : on ne le reinitialise pas si elle l'etait deja.
+  let blockedAt: string | null = null;
+  if (status === "bloque") {
+    const { data: current } = await supabase
+      .from("bag_stage_progress")
+      .select("status, blocked_at")
+      .eq("bag_id", bagId)
+      .eq("stage_id", stageId)
+      .single();
+    blockedAt = current?.status === "bloque" && current.blocked_at ? current.blocked_at : new Date().toISOString();
+  }
+
   const { error } = await supabase
     .from("bag_stage_progress")
     .update({
       status,
       notes,
       completed_at: status === "termine" ? new Date().toISOString() : null,
+      blocked_at: blockedAt,
       assigned_to: user?.id ?? null,
     })
     .eq("bag_id", bagId)

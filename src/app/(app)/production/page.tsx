@@ -26,7 +26,7 @@ export default async function ProductionPage() {
 
       <div className="flex gap-4 overflow-x-auto pb-4">
         {columns.map((col) => (
-          <div key={col.phase} className="w-64 shrink-0">
+          <div key={col.phase} id={`phase-${col.phase}`} className="w-64 shrink-0 scroll-mt-4">
             <div className="card mb-3 flex items-center justify-between rounded-sm px-3 py-2">
               <p className="eyebrow truncate">{PHASE_LABELS[col.phase]}</p>
               <span className="ml-2 shrink-0 rounded-full bg-black/10 px-2 py-0.5 text-xs text-paper">

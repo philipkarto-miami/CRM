@@ -136,6 +136,7 @@ export interface BagStageProgress {
   status: StageStatus;
   assigned_to: string | null;
   completed_at: string | null;
+  blocked_at: string | null;
   notes: string | null;
   sequence_override: number | null;
   subcontract_note: string | null;
