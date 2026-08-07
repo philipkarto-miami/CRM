@@ -41,7 +41,7 @@ export default async function ProductionPage() {
                 return (
                   <Link
                     key={bag.id}
-                    href={`/bags/${bag.id}`}
+                    href={`/bags/${bag.id}?from=production`}
                     className="card block rounded-sm p-3 hover:border-gold"
                   >
                     <p className="text-xs text-gold">{bag.serial_number}</p>

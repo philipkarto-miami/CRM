@@ -13,7 +13,7 @@ export function PhotoGallery({ bagId, photos }: { bagId: string; photos: Photo[]
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 gap-2">
       {photos.map((photo) => (
         <div key={photo.id} className="group relative overflow-hidden rounded-sm border border-line">
           {photo.url && (
