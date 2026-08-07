@@ -44,14 +44,14 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
         {(entries?.length ?? 0) >= 200 && " (200 premiers resultats, affine ta recherche)"}
       </p>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {(entries as SkuCatalog[] | null)?.map((entry) => (
           <Link
             key={entry.sku}
             href={`/catalogue/${entry.sku}`}
-            className="card block space-y-2 rounded-sm p-3 hover:border-gold/40"
+            className="card block space-y-2.5 rounded-sm p-3 hover:border-gold/40"
           >
-            <div className="flex h-28 items-center justify-center overflow-hidden rounded-sm bg-black/[0.03]">
+            <div className="flex aspect-square items-center justify-center overflow-hidden rounded-sm bg-black/[0.03]">
               {photoUrls.has(entry.sku) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={photoUrls.get(entry.sku)} alt="" className="h-full w-full object-cover" />

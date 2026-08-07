@@ -13,7 +13,7 @@ import { PhotoGallery } from "@/components/PhotoGallery";
 import { AssignSkuForm } from "@/components/AssignSkuForm";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import type { Bag, BagPhoto, BagStageProgress, ProductionStage, StagePhase, Supplier } from "@/types/database";
+import type { Bag, BagPhoto, BagStageProgress, ProductionStage, SkuCatalog, StagePhase, Supplier } from "@/types/database";
 
 type Progress = BagStageProgress & { production_stages: ProductionStage };
 
@@ -69,6 +69,31 @@ export default async function BagDetailPage({
   if (!bag) notFound();
 
   const typedBag = bag as Bag;
+
+  // Photo(s) du modele PK (catalogue) attribue a ce sac : sert de reference
+  // visuelle a l'atelier pour confirmer qu'il fabrique le bon modele.
+  let skuPhotoFrontUrl: string | null = null;
+  let skuPhotoBackUrl: string | null = null;
+  let skuEdition: string | null = null;
+  if (typedBag.sku) {
+    const { data: skuEntry } = await supabase
+      .from("sku_catalog")
+      .select("photo_path, photo_path_back, edition")
+      .eq("sku", typedBag.sku)
+      .maybeSingle();
+    const typedSkuEntry = skuEntry as Pick<SkuCatalog, "photo_path" | "photo_path_back" | "edition"> | null;
+    if (typedSkuEntry) {
+      skuEdition = typedSkuEntry.edition;
+      if (typedSkuEntry.photo_path) {
+        const { data } = await supabase.storage.from("sku-photos").createSignedUrl(typedSkuEntry.photo_path, 3600);
+        skuPhotoFrontUrl = data?.signedUrl ?? null;
+      }
+      if (typedSkuEntry.photo_path_back) {
+        const { data } = await supabase.storage.from("sku-photos").createSignedUrl(typedSkuEntry.photo_path_back, 3600);
+        skuPhotoBackUrl = data?.signedUrl ?? null;
+      }
+    }
+  }
   const typedProgress = ((progress as Progress[] | null) ?? []).filter((p) => p.production_stages);
   const updateBagWithId = updateBag.bind(null, typedBag.id);
   const deleteBagWithId = deleteBag.bind(null, typedBag.id);
@@ -376,7 +401,53 @@ export default async function BagDetailPage({
         </div>
 
         <div className="mt-6 md:mt-0">
-          <p className="eyebrow mb-2.5">Photos</p>
+          <p className="eyebrow mb-2.5">Modele a realiser</p>
+          {typedBag.sku && (skuPhotoFrontUrl || skuPhotoBackUrl) ? (
+            <div className="card rounded-sm p-3">
+              <div className="flex gap-2.5">
+                <div className="aspect-square w-1/2 overflow-hidden rounded-sm bg-black/[0.03]">
+                  {skuPhotoFrontUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={skuPhotoFrontUrl} alt="Recto du modele" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[11px] text-paper/30">Pas de recto</div>
+                  )}
+                </div>
+                <div className="aspect-square w-1/2 overflow-hidden rounded-sm bg-black/[0.03]">
+                  {skuPhotoBackUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={skuPhotoBackUrl} alt="Verso du modele" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-[11px] text-paper/30">Pas de verso</div>
+                  )}
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-paper/60">
+                <span className="text-gold">{typedBag.sku}</span>
+                {skuEdition && ` — ${skuEdition}`}
+              </p>
+              <Link href={`/catalogue/${typedBag.sku}`} className="text-xs text-paper/40 underline">
+                Voir la fiche catalogue →
+              </Link>
+            </div>
+          ) : typedBag.sku ? (
+            <div className="card rounded-sm px-4 py-5 text-center text-xs text-paper/45">
+              Aucune photo pour le SKU {typedBag.sku} —{" "}
+              <Link href={`/catalogue/${typedBag.sku}`} className="text-gold underline">
+                ajoute-la au catalogue
+              </Link>
+              .
+            </div>
+          ) : (
+            <div className="card rounded-sm px-4 py-5 text-center text-xs text-paper/45">
+              SKU non attribue — pas encore de photo de reference.{" "}
+              <Link href={`/bags/${typedBag.id}?view=infos`} className="text-gold underline">
+                Attribuer un SKU
+              </Link>
+            </div>
+          )}
+
+          <p className="eyebrow mb-2.5 mt-6">Photos</p>
           <PhotoGallery bagId={typedBag.id} photos={photos} />
           <div className="mt-2.5">
             <AddPhotoAction bagId={typedBag.id} />
