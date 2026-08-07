@@ -57,8 +57,15 @@ export default async function NewSkuCatalogPage({ searchParams }: { searchParams
               <p className="mt-1 text-[11px] text-paper/50">Un SKU = un seul modele / taille</p>
             </div>
 
-            <div className="mt-3.5 grid grid-cols-[6rem_1fr] gap-3">
-              <PhotoDropzone />
+            <div className="mt-3.5">
+              <p className="mb-1.5 text-xs text-paper/55">Photos (au moins recto + verso)</p>
+              <div className="flex gap-3">
+                <PhotoDropzone name="photo" label="Recto" />
+                <PhotoDropzone name="photo_back" label="Verso" />
+              </div>
+            </div>
+
+            <div className="mt-3.5">
               <FormRow label="Description">
                 <Textarea name="description" rows={3} placeholder="Visible dans le catalogue…" className="min-h-[64px]" />
               </FormRow>

@@ -87,9 +87,10 @@ export async function createCustomStep(
 async function uploadPhotoIfPresent(
   supabase: ReturnType<typeof createClient>,
   sku: string,
-  formData: FormData
+  formData: FormData,
+  field: string = "photo"
 ): Promise<string | null> {
-  const file = formData.get("photo") as File | null;
+  const file = formData.get(field) as File | null;
   if (!file || file.size === 0) return null;
 
   const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
@@ -110,7 +111,8 @@ export async function createSkuCatalogEntry(formData: FormData): Promise<void> {
     redirect(`/catalogue/new?error=${encodeURIComponent("Le SKU est obligatoire")}`);
   }
 
-  const photoPath = await uploadPhotoIfPresent(supabase, sku as string, formData);
+  const photoPath = await uploadPhotoIfPresent(supabase, sku as string, formData, "photo");
+  const photoPathBack = await uploadPhotoIfPresent(supabase, sku as string, formData, "photo_back");
 
   const payload = {
     sku,
@@ -121,6 +123,7 @@ export async function createSkuCatalogEntry(formData: FormData): Promise<void> {
     bag_model_id: str(formData, "bag_model_id"),
     steps: readSteps(formData),
     photo_path: photoPath,
+    photo_path_back: photoPathBack,
   };
 
   const { error } = await supabase.from("sku_catalog").insert(payload);
@@ -135,7 +138,8 @@ export async function createSkuCatalogEntry(formData: FormData): Promise<void> {
 export async function updateSkuCatalogEntry(sku: string, formData: FormData) {
   const supabase = createClient();
 
-  const photoPath = await uploadPhotoIfPresent(supabase, sku, formData);
+  const photoPath = await uploadPhotoIfPresent(supabase, sku, formData, "photo");
+  const photoPathBack = await uploadPhotoIfPresent(supabase, sku, formData, "photo_back");
 
   const payload: Record<string, unknown> = {
     edition: str(formData, "edition"),
@@ -144,6 +148,7 @@ export async function updateSkuCatalogEntry(sku: string, formData: FormData) {
     steps: readSteps(formData),
   };
   if (photoPath) payload.photo_path = photoPath;
+  if (photoPathBack) payload.photo_path_back = photoPathBack;
 
   await supabase.from("sku_catalog").update(payload).eq("sku", sku);
   revalidatePath("/catalogue");

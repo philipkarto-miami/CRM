@@ -32,6 +32,11 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
     const { data } = await supabase.storage.from("sku-photos").createSignedUrl(typedEntry.photo_path, 3600);
     photoUrl = data?.signedUrl ?? null;
   }
+  let photoBackUrl: string | null = null;
+  if (typedEntry.photo_path_back) {
+    const { data } = await supabase.storage.from("sku-photos").createSignedUrl(typedEntry.photo_path_back, 3600);
+    photoBackUrl = data?.signedUrl ?? null;
+  }
 
   const updateWithSku = updateSkuCatalogEntry.bind(null, typedEntry.sku);
   const deleteWithSku = deleteSkuCatalogEntry.bind(null, typedEntry.sku);
@@ -77,8 +82,15 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
               <p className="mt-1 text-[11px] text-paper/50">Un SKU = un seul modele / taille</p>
             </div>
 
-            <div className="mt-3.5 grid grid-cols-[6rem_1fr] gap-3">
-              <PhotoDropzone existingUrl={photoUrl} />
+            <div className="mt-3.5">
+              <p className="mb-1.5 text-xs text-paper/55">Photos (au moins recto + verso)</p>
+              <div className="flex gap-3">
+                <PhotoDropzone name="photo" label="Recto" existingUrl={photoUrl} />
+                <PhotoDropzone name="photo_back" label="Verso" existingUrl={photoBackUrl} />
+              </div>
+            </div>
+
+            <div className="mt-3.5">
               <FormRow label="Description">
                 <Textarea
                   name="description"

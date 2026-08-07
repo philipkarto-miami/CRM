@@ -85,6 +85,7 @@ export interface SkuCatalog {
   edition: string | null;
   description: string | null;
   photo_path: string | null;
+  photo_path_back: string | null;
   // Modele/taille fournisseur exact que ce SKU (modele PK) transforme —
   // un SKU ne correspond toujours qu'a un seul modele fournisseur.
   bag_model_id: string | null;

@@ -5,8 +5,18 @@ import { useRef, useState } from "react";
 // Slot photo carre 96px, integre directement au formulaire d'identite du
 // SKU (soumis avec le reste : plus besoin d'un mini-formulaire d'upload a
 // part). Affiche la photo existante si il y en a une, ou un apercu local
-// (URL.createObjectURL) des qu'un fichier est choisi.
-export function PhotoDropzone({ existingUrl }: { existingUrl?: string | null }) {
+// (URL.createObjectURL) des qu'un fichier est choisi. Le champ "name" et le
+// libelle sont personnalisables pour permettre plusieurs slots sur une
+// meme fiche (ex : recto / verso).
+export function PhotoDropzone({
+  name = "photo",
+  label = "Deposer une photo",
+  existingUrl,
+}: {
+  name?: string;
+  label?: string;
+  existingUrl?: string | null;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -21,13 +31,13 @@ export function PhotoDropzone({ existingUrl }: { existingUrl?: string | null }) 
           // eslint-disable-next-line @next/next/no-img-element
           <img src={preview ?? existingUrl ?? ""} alt="" className="h-full w-full object-cover" />
         ) : (
-          "Deposer une photo"
+          label
         )}
       </button>
       <input
         ref={inputRef}
         type="file"
-        name="photo"
+        name={name}
         accept="image/*"
         className="hidden"
         onChange={(e) => {
