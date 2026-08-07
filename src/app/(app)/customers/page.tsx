@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { FormRow, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import type { Customer } from "@/types/database";
 
 export default async function CustomersPage() {
@@ -34,7 +35,13 @@ export default async function CustomersPage() {
                     <td className="px-4 py-3 text-paper/60">{c.phone ?? "-"}</td>
                     <td className="px-4 py-3 text-right">
                       <form action={deleteCustomer.bind(null, c.id)}>
-                        <button className="text-xs text-red-400 hover:underline">Supprimer</button>
+                        <ConfirmSubmitButton
+                          confirmMessage={`Supprimer le client "${c.full_name}" ? Cette action est definitive.`}
+                          variant="ghost"
+                          className="!px-0 !py-0 text-xs text-danger hover:underline"
+                        >
+                          Supprimer
+                        </ConfirmSubmitButton>
                       </form>
                     </td>
                   </tr>

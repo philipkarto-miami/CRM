@@ -19,6 +19,11 @@ const config: Config = {
         // Chip sombre dedie pour poser le logo blanc (variante claire du
         // logo pas fournie) dans la sidebar.
         brandDark: "#0a0a0a",
+        // Nomme suite a l'audit UX : evite que des ors "en dur" (#c9a35c,
+        // #c39d63) se multiplient a cote du token "gold".
+        goldBright: "#c9a35c",
+        success: "#2f9e63",
+        danger: "#c43c2c",
       },
       fontFamily: {
         serif: ["var(--font-serif)", "Georgia", "serif"],

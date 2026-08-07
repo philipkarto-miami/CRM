@@ -100,8 +100,12 @@ export function OrderRow({
       <td className="px-4 py-3 text-paper/60">{formatDate(order.order_date)}</td>
       <td className="px-4 py-3 text-right">
         <button
-          onClick={() => startTransition(() => deleteOrder(order.id))}
-          className="text-xs text-red-400 hover:underline"
+          onClick={() => {
+            if (window.confirm(`Supprimer la commande "${order.order_name}" ? Cette action est definitive.`)) {
+              startTransition(() => deleteOrder(order.id));
+            }
+          }}
+          className="text-xs text-danger hover:underline"
         >
           Supprimer
         </button>

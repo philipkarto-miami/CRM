@@ -4,6 +4,7 @@ import { updateSkuCatalogEntry, deleteSkuCatalogEntry, uploadSkuPhoto } from "..
 import { PageHeader } from "@/components/PageHeader";
 import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
+import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
 import type { BagModel, SkuCatalog } from "@/types/database";
@@ -42,9 +43,11 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
         title={typedEntry.sku}
         action={
           <form action={deleteWithSku}>
-            <Button variant="danger" type="submit">
+            <ConfirmSubmitButton
+              confirmMessage={`Supprimer le code PK "${typedEntry.sku}" du catalogue ? Cette action est definitive.`}
+            >
               Supprimer
-            </Button>
+            </ConfirmSubmitButton>
           </form>
         }
       />
