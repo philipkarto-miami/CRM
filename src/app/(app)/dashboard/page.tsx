@@ -192,7 +192,7 @@ export default async function DashboardPage() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link
-          href="/orders?status=sac_a_commander"
+          href="/orders/sourcing"
           className={cn(
             "block rounded-sm border bg-white p-4",
             pendingOrders.length > 0 ? "border-danger" : "border-line"

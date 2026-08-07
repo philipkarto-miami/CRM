@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { LinkButton } from "@/components/ui/Button";
@@ -17,7 +18,8 @@ export default async function OrdersPage() {
       .from("orders")
       .select("*, bags(serial_number, model_label), customers(full_name), bag_models(name, base_size, brands(name))")
       .order("order_date", { ascending: false }),
-    supabase.from("orders").select("bag_id").not("bag_id", "is", null),
+    // F2 : une commande annulee ne doit pas rendre son sac indisponible.
+    supabase.from("orders").select("bag_id").not("bag_id", "is", null).neq("status", "annule"),
   ]);
 
   // Sacs "disponibles" = pas encore rattaches a une commande : ce sont ceux
@@ -47,11 +49,14 @@ export default async function OrdersPage() {
         action={<LinkButton href="/orders/new">+ Nouvelle commande</LinkButton>}
       />
 
-      {pendingCount > 0 && (
-        <p className="mb-4 text-sm text-gold/80">
-          {pendingCount} commande{pendingCount > 1 ? "s" : ""} en attente d&apos;un sac (« Sac à commander »).
-        </p>
-      )}
+      <div className="mb-5 flex gap-5 text-[13px]">
+        <span className="border-b-2 border-gold pb-0.5 font-semibold text-gold">Commandes</span>
+        {pendingCount > 0 && (
+          <Link href="/orders/sourcing" className="text-paper/55 hover:text-gold">
+            A sourcer · {pendingCount}
+          </Link>
+        )}
+      </div>
 
       <div className="card overflow-hidden rounded-sm">
         <table className="w-full text-left text-sm">

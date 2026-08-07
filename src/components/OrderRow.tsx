@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { updateOrder, deleteOrder, linkOrderToBag } from "@/app/(app)/orders/actions";
 import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
@@ -20,6 +20,7 @@ export function OrderRow({
   customerName: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   function patch(field: "status" | "payment_status", value: string) {
     const fd = new FormData();
@@ -37,13 +38,15 @@ export function OrderRow({
   }
 
   function link(bagId: string) {
-    startTransition(() => {
-      linkOrderToBag(order.id, bagId);
+    setLinkError(null);
+    startTransition(async () => {
+      const result = await linkOrderToBag(order.id, bagId);
+      if (result.error) setLinkError(result.error);
     });
   }
 
   return (
-    <tr className="border-b border-line/60 last:border-0">
+    <tr id={`order-${order.id}`} className="scroll-mt-4 border-b border-line/60 last:border-0">
       <td className="px-4 py-3 text-paper/80">{order.order_name}</td>
       <td className="px-4 py-3 text-paper/60">
         {bagLabel ?? (
@@ -64,6 +67,7 @@ export function OrderRow({
                 ))}
               </span>
             )}
+            {linkError && <p className="mt-1 text-xs text-danger">{linkError}</p>}
           </span>
         )}
       </td>

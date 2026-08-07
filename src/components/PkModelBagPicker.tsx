@@ -26,7 +26,7 @@ export function PkModelBagPicker({ pkModels, bags }: { pkModels: PkModelOption[]
         <Select name="desired_sku" required value={sku} onChange={(e) => setSku(e.target.value)}>
           <option value="">—</option>
           {pkModels.map((m) => (
-            <option key={m.sku} value={m.sku}>
+            <option key={m.sku} value={m.sku} disabled={!m.bagModelId}>
               {m.label}
             </option>
           ))}

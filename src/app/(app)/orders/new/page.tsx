@@ -11,7 +11,8 @@ export default async function NewOrderPage({ searchParams }: { searchParams: { e
   const [{ data: allBags }, { data: linkedBagIds }, { data: customers }, { data: skuEntries }, { data: models }] =
     await Promise.all([
       supabase.from("bags").select("id, serial_number, model_id, sku").order("serial_number"),
-      supabase.from("orders").select("bag_id").not("bag_id", "is", null),
+      // F2 : une commande annulee ne doit pas rendre son sac indisponible.
+      supabase.from("orders").select("bag_id").not("bag_id", "is", null).neq("status", "annule"),
       supabase.from("customers").select("id, full_name").order("full_name"),
       supabase.from("sku_catalog").select("sku, edition, bag_model_id").order("sku"),
       supabase.from("bag_models").select("*, brands(name)"),
