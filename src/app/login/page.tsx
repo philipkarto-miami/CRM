@@ -2,6 +2,16 @@ import { signIn } from "./actions";
 import { Input, Label } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 
+// Les erreurs Supabase (auth.signInWithPassword) arrivent en anglais ; on les
+// traduit quand on les reconnait, sinon on affiche le message tel quel (cas
+// des messages deja en francais generes par notre propre middleware).
+function friendlyError(message: string) {
+  if (/invalid login credentials/i.test(message)) {
+    return "Identifiants invalides. Verifie ton email et ton mot de passe.";
+  }
+  return message;
+}
+
 export default function LoginPage({
   searchParams,
 }: {
@@ -26,9 +36,7 @@ export default function LoginPage({
           </div>
 
           {searchParams?.error && (
-            <p className="text-sm text-red-400">
-              Identifiants invalides. Verifie ton email et ton mot de passe.
-            </p>
+            <p className="text-sm text-red-400">{friendlyError(searchParams.error)}</p>
           )}
 
           <Button type="submit" className="w-full">
