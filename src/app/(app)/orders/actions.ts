@@ -48,6 +48,27 @@ export async function createOrder(formData: FormData) {
     }
   }
 
+  // Un sac deja en stock a ete choisi pour ce modele PK : il faut lui
+  // attribuer le SKU tout de suite (comme le fait linkOrderToBag pour une
+  // commande rattachee plus tard), sinon le sac reste "sans SKU" et ne
+  // repart jamais en fabrication meme si la commande est bien "recue".
+  if (bagId && desiredSku) {
+    const { data: bag } = await supabase.from("bags").select("sku").eq("id", bagId).maybeSingle();
+    if (bag?.sku && bag.sku !== desiredSku) {
+      redirect(
+        `/orders/new?error=${encodeURIComponent(
+          `Ce sac porte deja le SKU ${bag.sku}, different du SKU souhaite (${desiredSku}).`
+        )}`
+      );
+    }
+    if (!bag?.sku) {
+      const assignResult = await assignSku(bagId, desiredSku);
+      if (assignResult.error) {
+        redirect(`/orders/new?error=${encodeURIComponent(assignResult.error)}`);
+      }
+    }
+  }
+
   const payload = {
     order_name: str(formData, "order_name"),
     bag_id: bagId,
