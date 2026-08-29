@@ -3,7 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { StageStatus } from "@/types/database";
+import type { PaymentStatus, StageStatus } from "@/types/database";
+import { PAYMENT_STATUS_LABELS } from "@/lib/constants";
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
@@ -277,11 +278,40 @@ export async function updateStageProgress(
   stageId: string,
   status: StageStatus,
   notes: string | null
-) {
+): Promise<{ error?: string }> {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Garde-fou metier : on ne peut pas marquer une etape d'expedition comme
+  // terminee si la commande liee au sac n'est pas entierement payee (evite
+  // d'expedier un sac dont le reglement est encore en attente/partiel).
+  if (status === "termine") {
+    const { data: stage } = await supabase
+      .from("production_stages")
+      .select("phase")
+      .eq("id", stageId)
+      .maybeSingle();
+
+    if (stage?.phase === "shipping") {
+      const { data: order } = await supabase
+        .from("orders")
+        .select("payment_status")
+        .eq("bag_id", bagId)
+        .neq("status", "annule")
+        .maybeSingle();
+
+      if (order && order.payment_status !== "paye") {
+        return {
+          error:
+            "Impossible de valider cette etape : le paiement de la commande n'est pas encore complet (statut actuel : " +
+            (PAYMENT_STATUS_LABELS[order.payment_status as PaymentStatus] ?? order.payment_status) +
+            ").",
+        };
+      }
+    }
+  }
 
   // blocked_at memorise depuis quand l'etape est bloquee (utilise par le
   // tableau de bord) : on ne le reinitialise pas si elle l'etait deja.
@@ -308,7 +338,7 @@ export async function updateStageProgress(
     .eq("bag_id", bagId)
     .eq("stage_id", stageId);
 
-  if (error) throw new Error(error.message);
+  if (error) return { error: error.message };
 
   await supabase.from("activity_log").insert({
     bag_id: bagId,
@@ -318,6 +348,7 @@ export async function updateStageProgress(
 
   revalidatePath(`/bags/${bagId}`);
   revalidatePath("/production");
+  return {};
 }
 
 export async function deleteBag(bagId: string) {

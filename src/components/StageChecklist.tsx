@@ -27,6 +27,7 @@ const STATUS_LABEL_COLOR: Record<StageStatus, string> = {
 export function StageChecklist({ bagId, progress }: { bagId: string; progress: Progress[] }) {
   const [isPending, startTransition] = useTransition();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Une etape dont sequence_override est renseigne a ete positionnee selon
   // le SKU attribue au sac (peut differer de l'ordre par defaut) ; sinon on
@@ -40,13 +41,18 @@ export function StageChecklist({ bagId, progress }: { bagId: string; progress: P
 
   function setStatus(item: Progress, status: StageStatus) {
     if (isPending) return;
-    startTransition(() => {
-      updateStageProgress(bagId, item.stage_id, status, item.notes ?? null);
+    setError(null);
+    startTransition(async () => {
+      const result = await updateStageProgress(bagId, item.stage_id, status, item.notes ?? null);
+      if (result?.error) setError(result.error);
     });
   }
 
   return (
     <div className="space-y-6">
+      {error && (
+        <p className="rounded-sm border border-danger bg-danger/5 px-3.5 py-2.5 text-xs text-danger">{error}</p>
+      )}
       {grouped.map((group) => {
         const done = group.items.filter((i) => i.status === "termine").length;
         return (
