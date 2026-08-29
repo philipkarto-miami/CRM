@@ -59,6 +59,39 @@ export function StageChecklist({ bagId, progress }: { bagId: string; progress: P
             </div>
             <ul className="card divide-y divide-line/60 rounded-sm">
               {group.items.map((item) => {
+                // Le controle qualite est une simple checklist : chaque point
+                // est soit fait, soit pas fait, pas besoin des 4 statuts
+                // (en cours/bloque n'ont pas de sens pour une verification).
+                if (group.phase === "quality_control") {
+                  const checked = item.status === "termine";
+                  return (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        disabled={isPending}
+                        onClick={() => setStatus(item, checked ? "a_faire" : "termine")}
+                        className="flex min-h-[44px] w-full items-center gap-3 px-3.5 py-3 text-left"
+                      >
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border",
+                            checked ? "border-success bg-success" : "border-line"
+                          )}
+                        >
+                          {checked && (
+                            <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 fill-none stroke-white stroke-[2.5]">
+                              <path d="M3 8.5L6.5 12L13 4.5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          )}
+                        </span>
+                        <span className={cn("text-[15px]", checked ? "text-paper/50 line-through" : "text-paper/80")}>
+                          {item.production_stages.name}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }
+
                 const expanded = expandedId === item.id;
                 return (
                   <li key={item.id} className={cn(expanded && "bg-gold/5")}>
