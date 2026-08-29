@@ -59,10 +59,15 @@ export function StageChecklist({ bagId, progress }: { bagId: string; progress: P
             </div>
             <ul className="card divide-y divide-line/60 rounded-sm">
               {group.items.map((item) => {
-                // Le controle qualite est une simple checklist : chaque point
-                // est soit fait, soit pas fait, pas besoin des 4 statuts
-                // (en cours/bloque n'ont pas de sens pour une verification).
-                if (group.phase === "quality_control") {
+                // Controle qualite, emballage et expedition sont de simples
+                // checklists : chaque point est soit fait, soit pas fait, pas
+                // besoin des 4 statuts (en cours/bloque n'ont pas de sens pour
+                // ces verifications/manipulations courtes).
+                if (
+                  group.phase === "quality_control" ||
+                  group.phase === "wrapping" ||
+                  group.phase === "shipping"
+                ) {
                   const checked = item.status === "termine";
                   return (
                     <li key={item.id}>
