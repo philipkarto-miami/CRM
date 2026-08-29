@@ -2,19 +2,22 @@
 
 import { useState, useTransition } from "react";
 import { updateOrder, deleteOrder, linkOrderToBag } from "@/app/(app)/orders/actions";
-import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS } from "@/lib/constants";
+import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, PHASE_LABELS } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
-import type { Order, OrderStatus, PaymentStatus } from "@/types/database";
+import { Badge } from "@/components/ui/Badge";
+import type { Order, OrderStatus, PaymentStatus, StagePhase } from "@/types/database";
 
 export function OrderRow({
   order,
   bagLabel,
+  bagPhase,
   desiredModelLabel,
   matchingBags,
   customerName,
 }: {
   order: Order;
   bagLabel: string | null;
+  bagPhase: StagePhase | null;
   desiredModelLabel: string | null;
   matchingBags: { id: string; serial_number: string; model_label: string }[];
   customerName: string;
@@ -72,6 +75,9 @@ export function OrderRow({
         )}
       </td>
       <td className="px-4 py-3 text-paper/60">{customerName}</td>
+      <td className="px-4 py-3">
+        {bagPhase ? <Badge tone="gold">{PHASE_LABELS[bagPhase]}</Badge> : <span className="text-paper/35">—</span>}
+      </td>
       <td className="px-4 py-3">
         <select
           disabled={isPending}

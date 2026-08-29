@@ -302,7 +302,12 @@ export async function updateStageProgress(
         .neq("status", "annule")
         .maybeSingle();
 
-      if (order && order.payment_status !== "paye") {
+      if (!order) {
+        return {
+          error: "Impossible de valider cette etape : aucune commande n'est rattachee a ce sac.",
+        };
+      }
+      if (order.payment_status !== "paye") {
         return {
           error:
             "Impossible de valider cette etape : le paiement de la commande n'est pas encore complet (statut actuel : " +
