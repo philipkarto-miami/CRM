@@ -3,7 +3,7 @@ import type { OrderStatus, PaymentStatus, StagePhase, StageStatus, UserRole } fr
 export const PHASE_LABELS: Record<StagePhase, string> = {
   reception: "Reception",
   disassembly: "A desassembler",
-  stock_propre: "Stock propre (en attente d'un SKU)",
+  stock_propre: "Pret a fabriquer",
   manufacturing: "A fabriquer",
   quality_control: "A controler",
   wrapping: "A emballer",
