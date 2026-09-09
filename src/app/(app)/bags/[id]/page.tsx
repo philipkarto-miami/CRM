@@ -11,6 +11,7 @@ import { CollapsiblePastPhase } from "@/components/CollapsiblePastPhase";
 import { AddPhotoAction } from "@/components/AddPhotoAction";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { AssignSkuForm } from "@/components/AssignSkuForm";
+import { SavedToast } from "@/components/SavedToast";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { Bag, BagPhoto, BagStageProgress, ProductionStage, SkuCatalog, StagePhase, Supplier } from "@/types/database";
@@ -211,6 +212,7 @@ export default async function BagDetailPage({
   if (isInfosView) {
     return (
       <div>
+        <SavedToast />
         {header}
 
         {searchParams?.error && <p className="mb-4 text-sm text-danger">Erreur : {searchParams.error}</p>}
@@ -347,6 +349,7 @@ export default async function BagDetailPage({
   // Vue atelier (par defaut) : le travail du moment, rien de plus.
   return (
     <div>
+      <SavedToast />
       {header}
 
       {searchParams?.error && <p className="mb-4 text-sm text-danger">Erreur : {searchParams.error}</p>}

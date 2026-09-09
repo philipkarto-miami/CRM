@@ -132,7 +132,7 @@ export async function createSkuCatalogEntry(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/catalogue");
-  redirect(`/catalogue/${sku}`);
+  redirect(`/catalogue/${sku}?saved=${encodeURIComponent("Code PK cree")}`);
 }
 
 export async function updateSkuCatalogEntry(sku: string, formData: FormData) {
@@ -153,6 +153,7 @@ export async function updateSkuCatalogEntry(sku: string, formData: FormData) {
   await supabase.from("sku_catalog").update(payload).eq("sku", sku);
   revalidatePath("/catalogue");
   revalidatePath(`/catalogue/${sku}`);
+  redirect(`/catalogue/${sku}?saved=${encodeURIComponent("Modifications enregistrees")}`);
 }
 
 export async function deleteSkuCatalogEntry(sku: string) {

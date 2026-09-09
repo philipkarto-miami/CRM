@@ -24,6 +24,7 @@ export async function createCustomer(formData: FormData) {
   }
 
   revalidatePath("/customers");
+  redirect(`/customers?saved=${encodeURIComponent("Client cree")}`);
 }
 
 export async function deleteCustomer(customerId: string) {

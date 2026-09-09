@@ -91,7 +91,7 @@ export function NewBagForm({
         return;
       }
 
-      router.push(`/bags/${result.id}`);
+      router.push(`/bags/${result.id}?saved=${encodeURIComponent("Sac cree")}`);
     });
   }
 

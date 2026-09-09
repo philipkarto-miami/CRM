@@ -7,6 +7,7 @@ import { PhotoDropzone } from "@/components/PhotoDropzone";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
+import { SavedToast } from "@/components/SavedToast";
 import type { BagModel, SkuCatalog } from "@/types/database";
 
 export default async function SkuCatalogDetailPage({ params }: { params: { sku: string } }) {
@@ -43,6 +44,7 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
 
   return (
     <form action={updateWithSku} className="pb-20">
+      <SavedToast />
       <p className="text-xs uppercase tracking-widest2 text-gold">
         <span className="text-paper/45">Catalogue /</span> {typedEntry.sku}
       </p>

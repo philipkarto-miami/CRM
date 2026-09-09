@@ -6,6 +6,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { FormRow, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { StageToggle } from "@/components/StageToggle";
+import { SavedToast } from "@/components/SavedToast";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
 import type { ProductionStage } from "@/types/database";
 
@@ -27,6 +28,7 @@ export default async function StagesSettingsPage() {
 
   return (
     <div>
+      <SavedToast />
       <PageHeader eyebrow="Parametres" title="Etapes de fabrication" />
 
       <div className="grid grid-cols-3 gap-8">

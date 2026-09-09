@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import type { StagePhase, UserRole } from "@/types/database";
 
 function str(formData: FormData, key: string) {
@@ -22,6 +23,7 @@ export async function createStage(formData: FormData) {
   });
 
   revalidatePath("/settings/stages");
+  redirect(`/settings/stages?saved=${encodeURIComponent("Etape creee")}`);
 }
 
 export async function toggleStageActive(stageId: string, isActive: boolean) {

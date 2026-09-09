@@ -5,6 +5,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { FormRow, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { SavedToast } from "@/components/SavedToast";
 import type { Supplier } from "@/types/database";
 
 export default async function SuppliersPage() {
@@ -13,6 +14,7 @@ export default async function SuppliersPage() {
 
   return (
     <div>
+      <SavedToast />
       <PageHeader eyebrow="Achats" title="Fournisseurs" />
 
       <div className="grid grid-cols-3 gap-8">

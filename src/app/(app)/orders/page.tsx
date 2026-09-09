@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { LinkButton } from "@/components/ui/Button";
 import { OrderRow } from "@/components/OrderRow";
+import { SavedToast } from "@/components/SavedToast";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import type { Bag, Customer, Order, StagePhase } from "@/types/database";
@@ -71,6 +72,7 @@ export default async function OrdersPage({
 
   return (
     <div>
+      <SavedToast />
       <PageHeader
         eyebrow="Ventes"
         title="Commandes clients"

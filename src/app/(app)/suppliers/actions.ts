@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
@@ -18,6 +19,7 @@ export async function createSupplier(formData: FormData) {
     notes: str(formData, "notes"),
   });
   revalidatePath("/suppliers");
+  redirect(`/suppliers?saved=${encodeURIComponent("Fournisseur cree")}`);
 }
 
 export async function deleteSupplier(supplierId: string) {

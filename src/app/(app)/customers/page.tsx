@@ -5,6 +5,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { FormRow, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
+import { SavedToast } from "@/components/SavedToast";
 import type { Customer } from "@/types/database";
 
 export default async function CustomersPage({ searchParams }: { searchParams: { error?: string } }) {
@@ -13,6 +14,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
 
   return (
     <div>
+      <SavedToast />
       <PageHeader eyebrow="Clients" title="Carnet clients" />
 
       {searchParams?.error && <p className="mb-4 text-sm text-danger">Erreur : {searchParams.error}</p>}

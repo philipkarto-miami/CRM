@@ -90,7 +90,7 @@ export async function createOrder(formData: FormData) {
   }
 
   revalidatePath("/orders");
-  redirect("/orders");
+  redirect(`/orders?saved=${encodeURIComponent("Commande creee")}`);
 }
 
 // Rattache un sac disponible en stock a une commande qui attendait en "sac

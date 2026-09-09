@@ -146,6 +146,7 @@ export async function updateBag(bagId: string, formData: FormData) {
 
   revalidatePath(`/bags/${bagId}`);
   revalidatePath("/bags");
+  redirect(`/bags/${bagId}?view=infos&saved=${encodeURIComponent("Modifications enregistrees")}`);
 }
 
 // Attribution d'un SKU depuis le stock : le SKU determine, via le catalogue
