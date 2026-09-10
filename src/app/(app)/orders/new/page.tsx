@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createOrder } from "../actions";
 import { PageHeader } from "@/components/PageHeader";
-import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
+import { FormRow, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { PkModelBagPicker } from "@/components/PkModelBagPicker";
 import { CustomerTypePicker } from "@/components/CustomerTypePicker";
@@ -63,20 +63,9 @@ export default async function NewOrderPage({ searchParams }: { searchParams: { e
           en « Sac à commander ».
         </p>
 
-        <div className="grid grid-cols-3 gap-4">
-          <FormRow label="Type de vente">
-            <Select name="sale_type" defaultValue="assemble">
-              <option value="assemble">Assemble</option>
-              <option value="disassemble">Desassemble</option>
-            </Select>
-          </FormRow>
-          <FormRow label="Prix de vente (€)">
-            <Input type="number" step="0.01" name="sale_price" />
-          </FormRow>
-          <FormRow label="Date de commande">
-            <Input type="date" name="order_date" defaultValue={new Date().toISOString().slice(0, 10)} />
-          </FormRow>
-        </div>
+        <FormRow label="Date de commande">
+          <Input type="date" name="order_date" defaultValue={new Date().toISOString().slice(0, 10)} />
+        </FormRow>
 
         <FormRow label="Notes">
           <Textarea name="notes" rows={3} />
