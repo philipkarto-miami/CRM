@@ -85,6 +85,7 @@ export async function createOrder(formData: FormData) {
   }
 
   const expectedShippingDate = str(formData, "expected_shipping_date");
+  const isPriority = formData.get("is_priority") === "on";
 
   const payload = {
     order_name: str(formData, "order_name"),
@@ -98,6 +99,7 @@ export async function createOrder(formData: FormData) {
     sale_price: str(formData, "sale_price") ? Number(str(formData, "sale_price")) : null,
     order_date: str(formData, "order_date"),
     expected_shipping_date: expectedShippingDate,
+    is_priority: isPriority,
     status: bagId ? "recu" : "sac_a_commander",
     notes: str(formData, "notes"),
     created_by: user?.id ?? null,
@@ -109,11 +111,14 @@ export async function createOrder(formData: FormData) {
     redirect(`/orders/new?error=${encodeURIComponent(error.message)}`);
   }
 
-  // La date d'expedition prevue pilote deja les calculs de retard existants
-  // via bags.delivery_date (tableau de bord, page Fabrication, liste des
-  // sacs) : on la recopie tout de suite si un sac est deja rattache.
+  // La date d'expedition prevue (et la priorite) pilotent deja l'ordre du
+  // kanban de production via bags.delivery_date / bags.is_priority : on les
+  // recopie tout de suite si un sac est deja rattache.
   if (bagId) {
-    await supabase.from("bags").update({ delivery_date: expectedShippingDate }).eq("id", bagId);
+    await supabase
+      .from("bags")
+      .update({ delivery_date: expectedShippingDate, is_priority: isPriority })
+      .eq("id", bagId);
   }
 
   revalidatePath("/orders");
@@ -139,7 +144,11 @@ export async function linkOrderToBag(orderId: string, bagId: string): Promise<{ 
   }
 
   const [{ data: order }, { data: bag }] = await Promise.all([
-    supabase.from("orders").select("desired_sku, bag_id, expected_shipping_date").eq("id", orderId).maybeSingle(),
+    supabase
+      .from("orders")
+      .select("desired_sku, bag_id, expected_shipping_date, is_priority")
+      .eq("id", orderId)
+      .maybeSingle(),
     supabase.from("bags").select("sku").eq("id", bagId).maybeSingle(),
   ]);
 
@@ -172,9 +181,13 @@ export async function linkOrderToBag(orderId: string, bagId: string): Promise<{ 
   if (error) return { error: error.message };
   if (!updated) return { error: "Cette commande a deja ete rattachee entre-temps." };
 
-  // Meme logique qu'a la creation : la date d'expedition prevue de la
-  // commande devient la date de retard suivie sur le sac desormais rattache.
-  await supabase.from("bags").update({ delivery_date: order.expected_shipping_date ?? null }).eq("id", bagId);
+  // Meme logique qu'a la creation : la date d'expedition prevue (et la
+  // priorite) de la commande deviennent celles suivies sur le sac desormais
+  // rattache.
+  await supabase
+    .from("bags")
+    .update({ delivery_date: order.expected_shipping_date ?? null, is_priority: order.is_priority ?? false })
+    .eq("id", bagId);
 
   revalidatePath("/orders");
   revalidatePath("/orders/sourcing");
@@ -187,6 +200,7 @@ export async function updateOrder(orderId: string, formData: FormData) {
   const supabase = createClient();
 
   const expectedShippingDate = str(formData, "expected_shipping_date");
+  const isPriority = formData.get("is_priority") === "on";
 
   const payload = {
     status: str(formData, "status"),
@@ -197,6 +211,7 @@ export async function updateOrder(orderId: string, formData: FormData) {
     shipped_at: str(formData, "shipped_at"),
     sale_price: str(formData, "sale_price") ? Number(str(formData, "sale_price")) : null,
     expected_shipping_date: expectedShippingDate,
+    is_priority: isPriority,
     notes: str(formData, "notes"),
   };
 
@@ -207,13 +222,26 @@ export async function updateOrder(orderId: string, formData: FormData) {
     .select("bag_id")
     .maybeSingle();
 
-  // Garde bags.delivery_date synchronise si la date d'expedition prevue
-  // change apres coup (ex: reprogrammation d'une commande deja rattachee).
+  // Garde bags.delivery_date/is_priority synchronises si la commande change
+  // apres coup (ex: reprogrammation d'une commande deja rattachee).
   if (updated?.bag_id) {
-    await supabase.from("bags").update({ delivery_date: expectedShippingDate }).eq("id", updated.bag_id);
+    await supabase
+      .from("bags")
+      .update({ delivery_date: expectedShippingDate, is_priority: isPriority })
+      .eq("id", updated.bag_id);
   }
 
   revalidatePath("/orders");
+}
+
+// Annule une commande sans la supprimer (garde une trace) : libere son sac
+// pour une autre commande, contrairement a un simple statut "en cours".
+export async function cancelOrder(orderId: string) {
+  const supabase = createClient();
+  await supabase.from("orders").update({ status: "annule" }).eq("id", orderId);
+  revalidatePath("/orders");
+  revalidatePath("/orders/sourcing");
+  revalidatePath("/bags");
 }
 
 export async function deleteOrder(orderId: string) {

@@ -83,7 +83,7 @@ export default async function SourcingPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Ventes"
+        eyebrow="Commandes"
         title="A sourcer"
         action={<LinkButton href="/orders/new">+ Nouvelle commande</LinkButton>}
       />

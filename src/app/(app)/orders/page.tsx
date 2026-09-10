@@ -74,7 +74,7 @@ export default async function OrdersPage({
     <div>
       <SavedToast />
       <PageHeader
-        eyebrow="Ventes"
+        eyebrow="Commandes"
         title="Commandes clients"
         action={
           <div className="flex items-center gap-2.5">
@@ -129,7 +129,6 @@ export default async function OrdersPage({
               <th className="px-4 py-3">Commande</th>
               <th className="px-4 py-3">Sac / modele souhaite</th>
               <th className="px-4 py-3">Client</th>
-              <th className="px-4 py-3">Statut du sac</th>
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3">Paiement</th>
               <th className="px-4 py-3">Date</th>
@@ -172,7 +171,7 @@ export default async function OrdersPage({
             })}
             {filteredOrders.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-paper/40">
+                <td colSpan={7} className="px-4 py-10 text-center text-paper/40">
                   Aucune commande ne correspond a ce filtre.
                 </td>
               </tr>

@@ -42,7 +42,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: { e
 
   return (
     <div className="max-w-2xl">
-      <PageHeader eyebrow="Ventes" title="Nouvelle commande" />
+      <PageHeader eyebrow="Commandes" title="Nouvelle commande" />
 
       {searchParams?.error && (
         <p className="mb-4 text-sm text-red-400">Erreur : {searchParams.error}</p>
@@ -74,8 +74,14 @@ export default async function NewOrderPage({ searchParams }: { searchParams: { e
         <p className="text-xs text-paper/40">
           Cette date pilote le suivi des retards de fabrication : une fois le sac rattache, elle
           s&apos;affiche sur sa fiche et declenche l&apos;alerte de retard si elle est depassee avant
-          l&apos;expedition.
+          l&apos;expedition. Par defaut, l&apos;ordre de fabrication suit cette date (la plus proche ou
+          la plus depassee en premier).
         </p>
+
+        <label className="flex items-center gap-2 text-sm text-paper/70">
+          <input type="checkbox" name="is_priority" className="accent-gold" />
+          Commande prioritaire (passe devant les autres sacs dans la file de fabrication)
+        </label>
 
         <FormRow label="Notes">
           <Textarea name="notes" rows={3} />

@@ -36,12 +36,24 @@ export default async function ProductionPage({
     bag_stage_progress: (b.bag_stage_progress ?? []).filter((p) => p.production_stages),
   }));
 
+  // Ordre de traitement dans chaque colonne du kanban : les sacs marques
+  // prioritaires d'abord (quelle que soit leur date), puis par date
+  // d'expedition prevue croissante (la plus proche ou la plus depassee en
+  // premier), les sacs sans date passant en dernier.
+  const sortedBags = [...typedBags].sort((a, b) => {
+    if (a.is_priority !== b.is_priority) return a.is_priority ? -1 : 1;
+    if (!a.delivery_date && !b.delivery_date) return 0;
+    if (!a.delivery_date) return 1;
+    if (!b.delivery_date) return -1;
+    return a.delivery_date.localeCompare(b.delivery_date);
+  });
+
   const today = new Date().toISOString().slice(0, 10);
 
   // Un sac "en cours" au sens fabrication ne peut etre bloque que sur une
   // etape de sa phase actuelle (les phases passees sont deja terminees, les
   // futures pas encore commencees).
-  const cards: ProductionCard[] = typedBags.map((bag) => {
+  const cards: ProductionCard[] = sortedBags.map((bag) => {
     const currentPhaseProgress = bag.bag_stage_progress
       .filter((p) => p.production_stages.phase === bag.current_phase)
       .sort((a, b) => (a.sequence_override ?? a.production_stages.order_index) - (b.sequence_override ?? b.production_stages.order_index));
@@ -59,6 +71,7 @@ export default async function ProductionPage({
       serial_number: bag.serial_number,
       model_label: bag.model_label,
       sku: bag.sku,
+      isPriority: bag.is_priority,
       isBlocked: Boolean(blockedStep),
       isLate,
       daysLate,

@@ -137,6 +137,10 @@ export interface Bag {
   current_phase: StagePhase;
   invoice_number: string | null;
   delivery_date: string | null;
+  // Recopie depuis orders.is_priority quand ce sac est rattache a une
+  // commande prioritaire : passe devant les autres dans le kanban de
+  // production independamment de delivery_date.
+  is_priority: boolean;
   notes: string | null;
   created_by: string | null;
   created_at: string;
@@ -186,6 +190,9 @@ export interface Order {
   // du sac rattache (voir orders/actions.ts) pour piloter les calculs de
   // retard existants sans dupliquer la logique.
   expected_shipping_date: string | null;
+  // Bascule un sac devant les autres dans le kanban de production, quelle
+  // que soit sa date d'expedition prevue. Voir bags.is_priority.
+  is_priority: boolean;
   status: OrderStatus;
   payment_status: PaymentStatus;
   invoice_number: string | null;

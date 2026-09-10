@@ -11,6 +11,7 @@ export type ProductionCard = {
   serial_number: string;
   model_label: string;
   sku: string | null;
+  isPriority: boolean;
   isBlocked: boolean;
   isLate: boolean;
   daysLate: number;
@@ -100,7 +101,10 @@ export function ProductionColumns({ columns }: { columns: ProductionColumn[] }) 
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] text-gold">{bag.serial_number}</p>
+                      <p className="text-[11px] text-gold">
+                        {bag.isPriority && <span title="Commande prioritaire">★ </span>}
+                        {bag.serial_number}
+                      </p>
                       {bag.isBlocked ? (
                         <span className="rounded-full border border-danger px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-danger">
                           Bloqué

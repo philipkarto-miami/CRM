@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateOrder, deleteOrder, linkOrderToBag } from "@/app/(app)/orders/actions";
-import { ORDER_STATUS_LABELS, PAYMENT_STATUS_LABELS, PHASE_LABELS } from "@/lib/constants";
+import { updateOrder, deleteOrder, cancelOrder, linkOrderToBag } from "@/app/(app)/orders/actions";
+import { PAYMENT_STATUS_LABELS, PHASE_LABELS } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
-import type { Order, OrderStatus, PaymentStatus, StagePhase } from "@/types/database";
+import type { Order, StagePhase } from "@/types/database";
 
 export function OrderRow({
   order,
@@ -25,9 +25,9 @@ export function OrderRow({
   const [isPending, startTransition] = useTransition();
   const [linkError, setLinkError] = useState<string | null>(null);
 
-  function patch(field: "status" | "payment_status", value: string) {
+  function patch(field: "payment_status", value: string) {
     const fd = new FormData();
-    fd.set("status", field === "status" ? value : order.status);
+    fd.set("status", order.status);
     fd.set("payment_status", field === "payment_status" ? value : order.payment_status);
     fd.set("invoice_number", order.invoice_number ?? "");
     fd.set("shipping_carrier", order.shipping_carrier ?? "");
@@ -35,6 +35,7 @@ export function OrderRow({
     fd.set("shipped_at", order.shipped_at ?? "");
     fd.set("sale_price", order.sale_price?.toString() ?? "");
     fd.set("expected_shipping_date", order.expected_shipping_date ?? "");
+    if (order.is_priority) fd.set("is_priority", "on");
     fd.set("notes", order.notes ?? "");
     startTransition(() => {
       updateOrder(order.id, fd);
@@ -77,21 +78,13 @@ export function OrderRow({
       </td>
       <td className="px-4 py-3 text-paper/60">{customerName}</td>
       <td className="px-4 py-3">
-        {bagPhase ? <Badge tone="gold">{PHASE_LABELS[bagPhase]}</Badge> : <span className="text-paper/35">—</span>}
-      </td>
-      <td className="px-4 py-3">
-        <select
-          disabled={isPending}
-          defaultValue={order.status}
-          onChange={(e) => patch("status", e.target.value)}
-          className="input-base px-2 py-1 text-xs"
-        >
-          {Object.entries(ORDER_STATUS_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
+        {order.status === "annule" ? (
+          <Badge tone="red">Annulee</Badge>
+        ) : bagPhase ? (
+          <Badge tone="gold">{PHASE_LABELS[bagPhase]}</Badge>
+        ) : (
+          <span className="text-xs text-paper/45">En attente de sac</span>
+        )}
       </td>
       <td className="px-4 py-3">
         <select
@@ -109,16 +102,34 @@ export function OrderRow({
       </td>
       <td className="px-4 py-3 text-paper/60">{formatDate(order.order_date)}</td>
       <td className="px-4 py-3 text-right">
-        <button
-          onClick={() => {
-            if (window.confirm(`Supprimer la commande "${order.order_name}" ? Cette action est definitive.`)) {
-              startTransition(() => deleteOrder(order.id));
-            }
-          }}
-          className="text-xs text-danger hover:underline"
-        >
-          Supprimer
-        </button>
+        <div className="flex items-center justify-end gap-3">
+          {order.status !== "annule" && (
+            <button
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `Annuler la commande "${order.order_name}" ? Le sac rattache redeviendra disponible.`
+                  )
+                ) {
+                  startTransition(() => cancelOrder(order.id));
+                }
+              }}
+              className="text-xs text-paper/50 hover:underline"
+            >
+              Annuler
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (window.confirm(`Supprimer la commande "${order.order_name}" ? Cette action est definitive.`)) {
+                startTransition(() => deleteOrder(order.id));
+              }
+            }}
+            className="text-xs text-danger hover:underline"
+          >
+            Supprimer
+          </button>
+        </div>
       </td>
     </tr>
   );
