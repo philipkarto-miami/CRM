@@ -58,6 +58,20 @@ export default async function BagsPage({
   const linkedBagIds = Array.from(new Set((linkedBagIdRows ?? []).map((o) => o.bag_id as string)));
   const linkedSet = new Set(linkedBagIds);
 
+  // Reference de commande visible directement dans le tableau (evite de
+  // devoir ouvrir chaque sac pour savoir a quelle commande il est attribue).
+  const { data: orderRefRows } = await supabase
+    .from("orders")
+    .select("id, bag_id, order_name")
+    .not("bag_id", "is", null)
+    .neq("status", "annule");
+  const orderRefByBagId = new Map(
+    ((orderRefRows ?? []) as { id: string; bag_id: string; order_name: string }[]).map((o) => [
+      o.bag_id,
+      { id: o.id, order_name: o.order_name },
+    ])
+  );
+
   // Compte des 3 groupes (respecte la recherche, comme les chips de phase,
   // mais pas le groupe actif lui-meme — comme "Toutes" pour les phases).
   let groupCountsQuery = supabase.from("bags").select("id, current_phase");
@@ -175,46 +189,7 @@ export default async function BagsPage({
         action={<LinkButton href="/bags/new">+ Nouveau sac</LinkButton>}
       />
 
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Link
-          href={groupHref(null)}
-          className={cn(
-            "rounded-full border px-3 py-[5px] text-[11px]",
-            !activeGroup ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
-          )}
-        >
-          Toutes · {sansCommandeCount + attribueCount + livreCount}
-        </Link>
-        <Link
-          href={groupHref("sans_commande")}
-          className={cn(
-            "rounded-full border px-3 py-[5px] text-[11px]",
-            activeGroup === "sans_commande" ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
-          )}
-        >
-          {GROUP_LABELS.sans_commande} · {sansCommandeCount}
-        </Link>
-        <Link
-          href={groupHref("attribue")}
-          className={cn(
-            "rounded-full border px-3 py-[5px] text-[11px]",
-            activeGroup === "attribue" ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
-          )}
-        >
-          {GROUP_LABELS.attribue} · {attribueCount}
-        </Link>
-        <Link
-          href={groupHref("livre")}
-          className={cn(
-            "rounded-full border px-3 py-[5px] text-[11px]",
-            activeGroup === "livre" ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
-          )}
-        >
-          {GROUP_LABELS.livre} · {livreCount}
-        </Link>
-      </div>
-
-      <form className="mb-3.5 flex flex-wrap items-center gap-3" method="get">
+      <form className="mb-5 flex flex-wrap items-center gap-3" method="get">
         <input
           type="search"
           name="q"
@@ -229,40 +204,97 @@ export default async function BagsPage({
         <input type="hidden" name="dir" value={dir} />
       </form>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      {/*
+        Niveau 1 : le statut commercial du sac (sans commande / attribue /
+        livre). Style "onglet texte souligne", identique au niveau 1 de la
+        page Commandes, pour bien le distinguer visuellement du niveau 2
+        (chips de phase juste en dessous) — les deux etaient auparavant
+        rendus avec le meme style de pastille, ce qui les faisait passer
+        pour un seul et meme niveau de filtre.
+      */}
+      <div className="mb-4 flex flex-wrap gap-5 text-[13px]">
         <Link
-          href={buildHref({ phase: null })}
+          href={groupHref(null)}
           className={cn(
-            "rounded-full border px-3 py-[5px] text-[11px]",
-            !activePhase ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
+            !activeGroup ? "border-b-2 border-gold pb-0.5 font-semibold text-gold" : "text-paper/55 hover:text-gold"
           )}
         >
-          Toutes les phases · {totalCount}
+          Toutes · {sansCommandeCount + attribueCount + livreCount}
         </Link>
-        {PHASE_ORDER.filter((phase) => (countsByPhase.get(phase) ?? 0) > 0).map((phase) => (
-          <Link
-            key={phase}
-            href={buildHref({ phase })}
-            className={cn(
-              "rounded-full border px-3 py-[5px] text-[11px]",
-              activePhase === phase ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
-            )}
-          >
-            {PHASE_LABELS[phase]} · {countsByPhase.get(phase) ?? 0}
-          </Link>
-        ))}
-        {lateCount > 0 && (
-          <Link
-            href={buildHref({ late: late ? null : "1", phase: null })}
-            className={cn(
-              "rounded-full border px-3 py-[5px] text-[11px]",
-              late ? "border-danger bg-danger/10 text-danger" : "border-danger/50 text-danger"
-            )}
-          >
-            En retard · {lateCount}
-          </Link>
-        )}
+        <Link
+          href={groupHref("sans_commande")}
+          className={cn(
+            activeGroup === "sans_commande"
+              ? "border-b-2 border-gold pb-0.5 font-semibold text-gold"
+              : "text-paper/55 hover:text-gold"
+          )}
+        >
+          {GROUP_LABELS.sans_commande} · {sansCommandeCount}
+        </Link>
+        <Link
+          href={groupHref("attribue")}
+          className={cn(
+            activeGroup === "attribue"
+              ? "border-b-2 border-gold pb-0.5 font-semibold text-gold"
+              : "text-paper/55 hover:text-gold"
+          )}
+        >
+          {GROUP_LABELS.attribue} · {attribueCount}
+        </Link>
+        <Link
+          href={groupHref("livre")}
+          className={cn(
+            activeGroup === "livre"
+              ? "border-b-2 border-gold pb-0.5 font-semibold text-gold"
+              : "text-paper/55 hover:text-gold"
+          )}
+        >
+          {GROUP_LABELS.livre} · {livreCount}
+        </Link>
       </div>
+
+      {/*
+        Niveau 2 : la phase de fabrication, en pastilles (plus discret). Masque
+        sur l'onglet "Livre" : une seule phase (Comptabilite) y est jamais
+        possible, donc ces chips ne feraient que repeter le compteur de
+        l'onglet juste au-dessus.
+      */}
+      {activeGroup !== "livre" && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Link
+            href={buildHref({ phase: null })}
+            className={cn(
+              "rounded-full border px-3 py-[5px] text-[11px]",
+              !activePhase ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
+            )}
+          >
+            Toutes les phases · {totalCount}
+          </Link>
+          {PHASE_ORDER.filter((phase) => (countsByPhase.get(phase) ?? 0) > 0).map((phase) => (
+            <Link
+              key={phase}
+              href={buildHref({ phase })}
+              className={cn(
+                "rounded-full border px-3 py-[5px] text-[11px]",
+                activePhase === phase ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
+              )}
+            >
+              {PHASE_LABELS[phase]} · {countsByPhase.get(phase) ?? 0}
+            </Link>
+          ))}
+          {lateCount > 0 && (
+            <Link
+              href={buildHref({ late: late ? null : "1", phase: null })}
+              className={cn(
+                "rounded-full border px-3 py-[5px] text-[11px]",
+                late ? "border-danger bg-danger/10 text-danger" : "border-danger/50 text-danger"
+              )}
+            >
+              En retard · {lateCount}
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="card overflow-hidden rounded-sm">
         <table className="w-full text-left text-sm">
@@ -275,6 +307,7 @@ export default async function BagsPage({
               </th>
               <th className="px-4 py-3">Modele</th>
               <th className="px-4 py-3">SKU</th>
+              <th className="px-4 py-3">Commande</th>
               <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3">
                 <Link
@@ -301,6 +334,18 @@ export default async function BagsPage({
                   <td className="px-4 py-3 text-paper/80">{bag.model_label}</td>
                   <td className="px-4 py-3 text-paper/60">{bag.sku ?? "-"}</td>
                   <td className="px-4 py-3">
+                    {orderRefByBagId.has(bag.id) ? (
+                      <Link
+                        href={`/orders/${orderRefByBagId.get(bag.id)!.id}`}
+                        className="relative z-10 text-gold hover:underline"
+                      >
+                        {orderRefByBagId.get(bag.id)!.order_name}
+                      </Link>
+                    ) : (
+                      <span className="text-paper/35">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
                     <Badge tone="gold">{PHASE_LABELS[bag.current_phase]}</Badge>
                   </td>
                   <td className={cn("px-4 py-3", isLate ? "text-danger" : "text-paper/60")}>
@@ -312,7 +357,7 @@ export default async function BagsPage({
             })}
             {(!bags || bags.length === 0) && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-paper/60">
+                <td colSpan={6} className="px-4 py-10 text-center text-paper/60">
                   Aucun sac ne correspond a ces filtres.
                 </td>
               </tr>
