@@ -2,9 +2,10 @@
 
 import { useRef, useState } from "react";
 import { createCustomer } from "@/app/(app)/customers/actions";
-import { FormRow, Input, Textarea } from "@/components/ui/Field";
+import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { PaymentTermsFields } from "@/components/PaymentTermsFields";
+import { COUNTRIES } from "@/lib/countries";
 import { cn } from "@/lib/utils";
 
 // Assistant en 2 etapes pour la creation d'un client pro : etape 1 identite
@@ -18,29 +19,67 @@ export function NewCustomerWizard() {
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <form ref={formRef} action={createCustomer} className="card max-w-xl space-y-5 rounded-sm p-6">
+    <form ref={formRef} action={createCustomer} className="card max-w-2xl space-y-5 rounded-sm p-6">
       <div className="flex items-center gap-3 text-xs uppercase tracking-widest2 text-paper/50">
         <span className={cn(step === 1 && "text-gold")}>1. Identite &amp; contact</span>
         <span className="text-paper/25">—</span>
         <span className={cn(step === 2 && "text-gold")}>2. Conditions commerciales</span>
       </div>
 
-      <div className={cn("space-y-3", step !== 1 && "hidden")}>
-        <FormRow label="Nom de la societe">
-          <Input name="full_name" required placeholder="Nom / raison sociale" />
-        </FormRow>
-        <FormRow label="Contact principal">
-          <Input name="contact_name" placeholder="Personne a contacter chez ce client" />
-        </FormRow>
-        <FormRow label="Email">
-          <Input type="email" name="email" />
-        </FormRow>
-        <FormRow label="Telephone">
-          <Input name="phone" />
-        </FormRow>
-        <FormRow label="Adresse">
-          <Textarea name="address" rows={2} placeholder="Rue, ville, etat, code postal" />
-        </FormRow>
+      <div className={cn("space-y-5", step !== 1 && "hidden")}>
+        <div className="space-y-3">
+          <p className="text-[11px] uppercase tracking-widest2 text-paper/40">Entreprise</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormRow label="Nom de la societe">
+              <Input name="full_name" required placeholder="Nom / raison sociale" />
+            </FormRow>
+            <FormRow label="Contact principal">
+              <Input name="contact_name" placeholder="Personne a contacter chez ce client" />
+            </FormRow>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-[11px] uppercase tracking-widest2 text-paper/40">Coordonnees</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormRow label="Email">
+              <Input type="email" name="email" />
+            </FormRow>
+            <FormRow label="Telephone">
+              <Input name="phone" />
+            </FormRow>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-[11px] uppercase tracking-widest2 text-paper/40">Adresse</p>
+          <FormRow label="Adresse (ligne 1)">
+            <Input name="address_line1" placeholder="Numero et rue" />
+          </FormRow>
+          <FormRow label="Adresse (ligne 2, optionnelle)">
+            <Input name="address_line2" placeholder="Complement d'adresse" />
+          </FormRow>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <FormRow label="Ville">
+              <Input name="city" />
+            </FormRow>
+            <FormRow label="Region / Etat / Province">
+              <Input name="region" />
+            </FormRow>
+            <FormRow label="Code postal">
+              <Input name="postal_code" />
+            </FormRow>
+          </div>
+          <FormRow label="Pays">
+            <Select name="country" defaultValue="Etats-Unis">
+              {COUNTRIES.map((country) => (
+                <option key={country} value={country}>
+                  {country}
+                </option>
+              ))}
+            </Select>
+          </FormRow>
+        </div>
       </div>
 
       <div className={cn("space-y-3", step !== 2 && "hidden")}>

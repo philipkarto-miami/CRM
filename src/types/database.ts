@@ -64,7 +64,14 @@ export interface Customer {
   full_name: string;
   email: string | null;
   phone: string | null;
-  address: string | null;
+  // Adresse structuree, generique (valable pour n'importe quel pays) :
+  // region couvre etat/province selon le pays, en texte libre.
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  region: string | null;
+  postal_code: string | null;
+  country: string | null;
   notes: string | null;
   payment_terms: PaymentTerms;
   payment_terms_percent: number | null;
