@@ -22,13 +22,15 @@ export async function createCustomer(formData: FormData) {
     email: str(formData, "email"),
     phone: str(formData, "phone"),
     address: str(formData, "address"),
+    contact_name: str(formData, "contact_name"),
+    tax_id: str(formData, "tax_id"),
     notes: str(formData, "notes"),
     payment_terms: paymentTerms,
     payment_terms_percent: paymentTermsPercent,
   });
 
   if (error) {
-    redirect(`/customers?error=${encodeURIComponent(error.message)}`);
+    redirect(`/customers/new?error=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/customers");

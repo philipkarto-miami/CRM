@@ -68,6 +68,11 @@ export interface Customer {
   notes: string | null;
   payment_terms: PaymentTerms;
   payment_terms_percent: number | null;
+  // Personne a contacter chez ce client pro (peut differer du nom de la
+  // societe saisi dans full_name).
+  contact_name: string | null;
+  // Identifiant fiscal generique (ex: EIN aux USA) — pas de format impose.
+  tax_id: string | null;
   created_at: string;
 }
 
