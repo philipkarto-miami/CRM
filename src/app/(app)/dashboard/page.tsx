@@ -89,7 +89,11 @@ export default async function DashboardPage() {
   const subcontractPending = typedBlocked.filter((b) => b.subcontract_note).length;
 
   const lateBags = typedBags.filter(
-    (b) => b.delivery_date && b.delivery_date < today && b.current_phase !== "shipping"
+    (b) =>
+      b.delivery_date &&
+      b.delivery_date < today &&
+      b.current_phase !== "shipping" &&
+      b.current_phase !== "accounting"
   );
   const readyToShip = typedBags.filter((b) => b.current_phase === "shipping");
 

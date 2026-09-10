@@ -3,60 +3,122 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { LinkButton } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { PHASE_LABELS, PHASE_ORDER, SALE_TYPE_LABELS } from "@/lib/constants";
+import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
 import { formatDate, cn } from "@/lib/utils";
 import type { Bag, StagePhase } from "@/types/database";
 
 const PAGE_SIZE = 50;
 
 type SortKey = "serial" | "delivery";
+// "Livre" = phase actuelle "Comptabilite" (derniere etape, apres expedition)
+// prime sur le reste : un sac livre ne redevient jamais "attribue" ou "sans
+// commande" meme si sa commande existe toujours. Les deux autres groupes se
+// distinguent par la presence ou non d'une commande active (non annulee)
+// rattachee.
+type StockGroup = "sans_commande" | "attribue" | "livre";
 
 const SORT_COLUMN: Record<SortKey, string> = {
   serial: "serial_number",
   delivery: "delivery_date",
 };
 
+const GROUP_LABELS: Record<StockGroup, string> = {
+  sans_commande: "Sans commande",
+  attribue: "Attribue a une commande",
+  livre: "Livre",
+};
+
 export default async function BagsPage({
   searchParams,
 }: {
-  searchParams: { q?: string; phase?: string; late?: string; sort?: string; dir?: string; page?: string };
+  searchParams: { q?: string; phase?: string; late?: string; sort?: string; dir?: string; page?: string; group?: string };
 }) {
   const supabase = createClient();
   const q = searchParams?.q?.trim() ?? "";
   const late = searchParams?.late === "1";
   const activePhase = (searchParams?.phase as StagePhase | undefined) || null;
+  const activeGroup: StockGroup | null =
+    searchParams?.group === "sans_commande" || searchParams?.group === "attribue" || searchParams?.group === "livre"
+      ? searchParams.group
+      : null;
   const sort: SortKey = searchParams?.sort === "delivery" ? "delivery" : "serial";
   const dir: "asc" | "desc" = searchParams?.dir === "desc" ? "desc" : "asc";
   const page = Math.max(1, parseInt(searchParams?.page ?? "1", 10) || 1);
   const today = new Date().toISOString().slice(0, 10);
+  const orFilter = q ? `serial_number.ilike.%${q}%,model_label.ilike.%${q}%,sku.ilike.%${q}%` : null;
 
-  // Comptage par phase pour les chips (sensible a la recherche/au retard,
-  // mais pas au filtre de phase lui-meme, pour rester coherent d'une chip a
-  // l'autre).
-  let countsQuery = supabase.from("bags").select("current_phase");
+  // Sacs rattaches a une commande active (non annulee) : sert a distinguer
+  // "attribue" de "sans commande". Un sac livre (phase comptabilite) reste
+  // dans le groupe "Livre" quoi qu'il arrive, voir plus bas.
+  const { data: linkedBagIdRows } = await supabase
+    .from("orders")
+    .select("bag_id")
+    .not("bag_id", "is", null)
+    .neq("status", "annule");
+  const linkedBagIds = Array.from(new Set((linkedBagIdRows ?? []).map((o) => o.bag_id as string)));
+  const linkedSet = new Set(linkedBagIds);
+
+  // Compte des 3 groupes (respecte la recherche, comme les chips de phase,
+  // mais pas le groupe actif lui-meme — comme "Toutes" pour les phases).
+  let groupCountsQuery = supabase.from("bags").select("id, current_phase");
+  if (orFilter) groupCountsQuery = groupCountsQuery.or(orFilter);
+  const { data: groupCountRows } = await groupCountsQuery;
+  let sansCommandeCount = 0;
+  let attribueCount = 0;
+  let livreCount = 0;
+  for (const b of (groupCountRows as { id: string; current_phase: StagePhase }[] | null) ?? []) {
+    if (b.current_phase === "accounting") livreCount++;
+    else if (linkedSet.has(b.id)) attribueCount++;
+    else sansCommandeCount++;
+  }
+
+  // Comptage par phase pour les chips (sensible a la recherche/au retard et
+  // au groupe actif, mais pas au filtre de phase lui-meme, pour rester
+  // coherent d'une chip a l'autre).
+  let countsQuery = supabase.from("bags").select("id, current_phase");
   let totalCountQuery = supabase.from("bags").select("id", { count: "exact", head: true });
   let lateCountQuery = supabase
     .from("bags")
     .select("id", { count: "exact", head: true })
     .lt("delivery_date", today)
-    .neq("current_phase", "shipping");
+    .neq("current_phase", "shipping")
+    .neq("current_phase", "accounting");
   let mainQuery = supabase.from("bags").select("*", { count: "exact" });
 
-  if (q) {
-    const orFilter = `serial_number.ilike.%${q}%,model_label.ilike.%${q}%,sku.ilike.%${q}%`;
+  if (orFilter) {
     countsQuery = countsQuery.or(orFilter);
     totalCountQuery = totalCountQuery.or(orFilter);
     lateCountQuery = lateCountQuery.or(orFilter);
     mainQuery = mainQuery.or(orFilter);
   }
   if (late) {
-    countsQuery = countsQuery.lt("delivery_date", today).neq("current_phase", "shipping");
-    totalCountQuery = totalCountQuery.lt("delivery_date", today).neq("current_phase", "shipping");
-    mainQuery = mainQuery.lt("delivery_date", today).neq("current_phase", "shipping");
+    countsQuery = countsQuery.lt("delivery_date", today).neq("current_phase", "shipping").neq("current_phase", "accounting");
+    totalCountQuery = totalCountQuery.lt("delivery_date", today).neq("current_phase", "shipping").neq("current_phase", "accounting");
+    mainQuery = mainQuery.lt("delivery_date", today).neq("current_phase", "shipping").neq("current_phase", "accounting");
   }
   if (activePhase) {
     mainQuery = mainQuery.eq("current_phase", activePhase);
   }
+
+  function applyGroupFilter<T extends { eq: Function; neq: Function; in: Function; not: Function }>(query: T): T {
+    if (activeGroup === "livre") {
+      return query.eq("current_phase", "accounting");
+    }
+    if (activeGroup === "attribue") {
+      if (linkedBagIds.length === 0) return query.eq("id", "00000000-0000-0000-0000-000000000000");
+      return query.in("id", linkedBagIds).neq("current_phase", "accounting");
+    }
+    if (activeGroup === "sans_commande") {
+      const withoutDelivered = query.neq("current_phase", "accounting");
+      return linkedBagIds.length > 0 ? withoutDelivered.not("id", "in", `(${linkedBagIds.join(",")})`) : withoutDelivered;
+    }
+    return query;
+  }
+
+  countsQuery = applyGroupFilter(countsQuery);
+  totalCountQuery = applyGroupFilter(totalCountQuery);
+  lateCountQuery = applyGroupFilter(lateCountQuery);
+  mainQuery = applyGroupFilter(mainQuery);
 
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
@@ -80,6 +142,7 @@ export default async function BagsPage({
     const params = new URLSearchParams();
     if (q) params.set("q", q);
     if (activePhase) params.set("phase", activePhase);
+    if (activeGroup) params.set("group", activeGroup);
     if (late) params.set("late", "1");
     params.set("sort", sort);
     params.set("dir", dir);
@@ -91,6 +154,12 @@ export default async function BagsPage({
     if (!("page" in overrides)) params.delete("page");
     const qs = params.toString();
     return qs ? `/bags?${qs}` : "/bags";
+  }
+
+  // Changer de groupe reinitialise le filtre de phase (les phases utiles
+  // different d'un groupe a l'autre) et la pagination.
+  function groupHref(group: StockGroup | null) {
+    return buildHref({ group, phase: null, page: null });
   }
 
   function sortIndicator(key: SortKey) {
@@ -106,6 +175,45 @@ export default async function BagsPage({
         action={<LinkButton href="/bags/new">+ Nouveau sac</LinkButton>}
       />
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Link
+          href={groupHref(null)}
+          className={cn(
+            "rounded-full border px-3 py-[5px] text-[11px]",
+            !activeGroup ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
+          )}
+        >
+          Toutes · {sansCommandeCount + attribueCount + livreCount}
+        </Link>
+        <Link
+          href={groupHref("sans_commande")}
+          className={cn(
+            "rounded-full border px-3 py-[5px] text-[11px]",
+            activeGroup === "sans_commande" ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
+          )}
+        >
+          {GROUP_LABELS.sans_commande} · {sansCommandeCount}
+        </Link>
+        <Link
+          href={groupHref("attribue")}
+          className={cn(
+            "rounded-full border px-3 py-[5px] text-[11px]",
+            activeGroup === "attribue" ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
+          )}
+        >
+          {GROUP_LABELS.attribue} · {attribueCount}
+        </Link>
+        <Link
+          href={groupHref("livre")}
+          className={cn(
+            "rounded-full border px-3 py-[5px] text-[11px]",
+            activeGroup === "livre" ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
+          )}
+        >
+          {GROUP_LABELS.livre} · {livreCount}
+        </Link>
+      </div>
+
       <form className="mb-3.5 flex flex-wrap items-center gap-3" method="get">
         <input
           type="search"
@@ -115,6 +223,7 @@ export default async function BagsPage({
           className="input-base w-full px-3 py-2 text-sm sm:w-[300px]"
         />
         {activePhase && <input type="hidden" name="phase" value={activePhase} />}
+        {activeGroup && <input type="hidden" name="group" value={activeGroup} />}
         {late && <input type="hidden" name="late" value="1" />}
         <input type="hidden" name="sort" value={sort} />
         <input type="hidden" name="dir" value={dir} />
@@ -128,7 +237,7 @@ export default async function BagsPage({
             !activePhase ? "border-gold bg-gold/10 text-gold" : "border-line text-paper/60"
           )}
         >
-          Toutes · {totalCount}
+          Toutes les phases · {totalCount}
         </Link>
         {PHASE_ORDER.filter((phase) => (countsByPhase.get(phase) ?? 0) > 0).map((phase) => (
           <Link
@@ -166,8 +275,7 @@ export default async function BagsPage({
               </th>
               <th className="px-4 py-3">Modele</th>
               <th className="px-4 py-3">SKU</th>
-              <th className="px-4 py-3">Type de vente</th>
-              <th className="px-4 py-3">Phase</th>
+              <th className="px-4 py-3">Statut</th>
               <th className="px-4 py-3">
                 <Link
                   href={buildHref({ sort: "delivery", dir: sort === "delivery" && dir === "asc" ? "desc" : "asc" })}
@@ -179,7 +287,11 @@ export default async function BagsPage({
           </thead>
           <tbody>
             {(bags as Bag[] | null)?.map((bag) => {
-              const isLate = !!bag.delivery_date && bag.delivery_date < today && bag.current_phase !== "shipping";
+              const isLate =
+                !!bag.delivery_date &&
+                bag.delivery_date < today &&
+                bag.current_phase !== "shipping" &&
+                bag.current_phase !== "accounting";
               return (
                 <tr key={bag.id} className="relative border-b border-line/60 last:border-0 hover:bg-black/[0.02]">
                   <td className="px-4 py-3">
@@ -188,7 +300,6 @@ export default async function BagsPage({
                   </td>
                   <td className="px-4 py-3 text-paper/80">{bag.model_label}</td>
                   <td className="px-4 py-3 text-paper/60">{bag.sku ?? "-"}</td>
-                  <td className="px-4 py-3 text-paper/60">{SALE_TYPE_LABELS[bag.sale_type]}</td>
                   <td className="px-4 py-3">
                     <Badge tone="gold">{PHASE_LABELS[bag.current_phase]}</Badge>
                   </td>
@@ -201,7 +312,7 @@ export default async function BagsPage({
             })}
             {(!bags || bags.length === 0) && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-paper/60">
+                <td colSpan={5} className="px-4 py-10 text-center text-paper/60">
                   Aucun sac ne correspond a ces filtres.
                 </td>
               </tr>

@@ -10,7 +10,7 @@ import { LogoutButton } from "@/components/LogoutButton";
 const NAV: { href: string; label: string; roles?: UserRole[] }[] = [
   { href: "/dashboard", label: "Tableau de bord" },
   { href: "/catalogue", label: "Catalogue produits" },
-  { href: "/bags", label: "Stock de sacs" },
+  { href: "/bags", label: "Stock" },
   { href: "/production", label: "Fabrication" },
   { href: "/orders", label: "Commandes" },
   { href: "/customers", label: "Clients Pro" },

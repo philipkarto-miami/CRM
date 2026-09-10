@@ -62,7 +62,11 @@ export default async function ProductionPage({
     const nextStep = currentPhaseProgress.find((p) => p.status !== "termine") ?? null;
     const doneInPhase = currentPhaseProgress.filter((p) => p.status === "termine").length;
 
-    const isLate = Boolean(bag.delivery_date) && bag.delivery_date! < today && bag.current_phase !== "shipping";
+    const isLate =
+      Boolean(bag.delivery_date) &&
+      bag.delivery_date! < today &&
+      bag.current_phase !== "shipping" &&
+      bag.current_phase !== "accounting";
     const daysLate = isLate ? daysBetween(bag.delivery_date as string, today) : 0;
 
     return {
