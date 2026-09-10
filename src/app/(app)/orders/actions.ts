@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { assignSku } from "../bags/actions";
+import { PAYMENT_STATUS_LABELS } from "@/lib/constants";
+import type { PaymentStatus } from "@/types/database";
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
@@ -105,7 +107,7 @@ export async function createOrder(formData: FormData) {
     created_by: user?.id ?? null,
   };
 
-  const { error } = await supabase.from("orders").insert(payload);
+  const { data: created, error } = await supabase.from("orders").insert(payload).select("id").single();
 
   if (error) {
     redirect(`/orders/new?error=${encodeURIComponent(error.message)}`);
@@ -121,6 +123,13 @@ export async function createOrder(formData: FormData) {
       .eq("id", bagId);
   }
 
+  await supabase.from("activity_log").insert({
+    order_id: created.id,
+    bag_id: bagId,
+    user_id: user?.id ?? null,
+    action: "Commande creee",
+  });
+
   revalidatePath("/orders");
   redirect(`/orders?saved=${encodeURIComponent("Commande creee")}`);
 }
@@ -129,6 +138,9 @@ export async function createOrder(formData: FormData) {
 // a commander" (suggere automatiquement, confirme manuellement par l'atelier).
 export async function linkOrderToBag(orderId: string, bagId: string): Promise<{ error?: string }> {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   // F4 : garde-fou anti double-lien. Un sac ne doit etre engage que sur une
   // seule commande active a la fois (les commandes annulees ne comptent
@@ -149,7 +161,7 @@ export async function linkOrderToBag(orderId: string, bagId: string): Promise<{ 
       .select("desired_sku, bag_id, expected_shipping_date, is_priority")
       .eq("id", orderId)
       .maybeSingle(),
-    supabase.from("bags").select("sku").eq("id", bagId).maybeSingle(),
+    supabase.from("bags").select("sku, serial_number").eq("id", bagId).maybeSingle(),
   ]);
 
   if (!order) return { error: "Commande introuvable." };
@@ -189,6 +201,13 @@ export async function linkOrderToBag(orderId: string, bagId: string): Promise<{ 
     .update({ delivery_date: order.expected_shipping_date ?? null, is_priority: order.is_priority ?? false })
     .eq("id", bagId);
 
+  await supabase.from("activity_log").insert({
+    order_id: orderId,
+    bag_id: bagId,
+    user_id: user?.id ?? null,
+    action: `Sac rattache : ${bag?.serial_number ?? bagId}`,
+  });
+
   revalidatePath("/orders");
   revalidatePath("/orders/sourcing");
   revalidatePath("/bags");
@@ -198,9 +217,15 @@ export async function linkOrderToBag(orderId: string, bagId: string): Promise<{ 
 
 export async function updateOrder(orderId: string, formData: FormData) {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const expectedShippingDate = str(formData, "expected_shipping_date");
   const isPriority = formData.get("is_priority") === "on";
+  const newPaymentStatus = str(formData, "payment_status");
+
+  const { data: before } = await supabase.from("orders").select("payment_status").eq("id", orderId).maybeSingle();
 
   const payload = {
     status: str(formData, "status"),
@@ -231,6 +256,18 @@ export async function updateOrder(orderId: string, formData: FormData) {
       .eq("id", updated.bag_id);
   }
 
+  // On ne journalise que les changements reels de statut de paiement (evite
+  // de polluer l'historique a chaque re-soumission avec la meme valeur).
+  if (before && newPaymentStatus && before.payment_status !== newPaymentStatus) {
+    await supabase.from("activity_log").insert({
+      order_id: orderId,
+      user_id: user?.id ?? null,
+      action: `Paiement : ${PAYMENT_STATUS_LABELS[before.payment_status as PaymentStatus] ?? before.payment_status} -> ${
+        PAYMENT_STATUS_LABELS[newPaymentStatus as PaymentStatus] ?? newPaymentStatus
+      }`,
+    });
+  }
+
   revalidatePath("/orders");
 }
 
@@ -238,7 +275,15 @@ export async function updateOrder(orderId: string, formData: FormData) {
 // pour une autre commande, contrairement a un simple statut "en cours".
 export async function cancelOrder(orderId: string) {
   const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   await supabase.from("orders").update({ status: "annule" }).eq("id", orderId);
+  await supabase.from("activity_log").insert({
+    order_id: orderId,
+    user_id: user?.id ?? null,
+    action: "Commande annulee",
+  });
   revalidatePath("/orders");
   revalidatePath("/orders/sourcing");
   revalidatePath("/bags");

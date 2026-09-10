@@ -208,6 +208,9 @@ export interface Order {
 export interface ActivityLog {
   id: string;
   bag_id: string | null;
+  // Historique cote commande (creation, rattachement de sac, annulation,
+  // changement de statut de paiement) : voir orders/actions.ts.
+  order_id: string | null;
   user_id: string | null;
   action: string;
   details: Record<string, unknown> | null;

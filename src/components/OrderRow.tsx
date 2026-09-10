@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { updateOrder, deleteOrder, cancelOrder, linkOrderToBag } from "@/app/(app)/orders/actions";
 import { PAYMENT_STATUS_LABELS, PHASE_LABELS } from "@/lib/constants";
 import { formatDate } from "@/lib/utils";
@@ -52,7 +53,11 @@ export function OrderRow({
 
   return (
     <tr id={`order-${order.id}`} className="scroll-mt-4 border-b border-line/60 last:border-0">
-      <td className="px-4 py-3 text-paper/80">{order.order_name}</td>
+      <td className="px-4 py-3 text-paper/80">
+        <Link href={`/orders/${order.id}`} className="text-gold hover:underline">
+          {order.order_name}
+        </Link>
+      </td>
       <td className="px-4 py-3 text-paper/60">
         {bagLabel ?? (
           <span>
