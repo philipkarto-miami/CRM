@@ -13,7 +13,7 @@ const NAV: { href: string; label: string; roles?: UserRole[] }[] = [
   { href: "/bags", label: "Stock de sacs" },
   { href: "/production", label: "Fabrication" },
   { href: "/orders", label: "Ventes & commandes" },
-  { href: "/customers", label: "Clients" },
+  { href: "/customers", label: "Clients Pro" },
   { href: "/suppliers", label: "Fournisseurs" },
   { href: "/settings/stages", label: "Etapes de fabrication", roles: ["admin"] },
   { href: "/settings/users", label: "Utilisateurs", roles: ["admin"] },

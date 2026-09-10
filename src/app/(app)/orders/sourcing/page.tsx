@@ -148,7 +148,11 @@ export default async function SourcingPage() {
                         <span>
                           {order.order_name} · <span className="text-gold">{order.desired_sku ?? "?"}</span>
                         </span>
-                        <span className="text-paper/70">{order.customers?.full_name ?? "-"}</span>
+                        <span className="text-paper/70">
+                          {order.customer_type === "particulier"
+                            ? order.individual_customer_name ?? "-"
+                            : order.customers?.full_name ?? "-"}
+                        </span>
                         <span className={cn(days > 14 ? "text-danger" : "text-paper/60")}>
                           {formatDate(order.order_date)} · il y a {days} j
                         </span>

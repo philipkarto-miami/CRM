@@ -19,6 +19,13 @@ export type StagePhase =
 export type StageStatus = "a_faire" | "en_cours" | "termine" | "bloque";
 export type PaymentStatus = "en_attente" | "partiel" | "paye";
 export type OrderStatus = "recu" | "en_traitement" | "expedie" | "livre" | "annule" | "sac_a_commander";
+// Conditions de paiement d'un client pro : pilotent la regle d'expedition
+// (total = paye a 100% requis, partiel = un acompte suffit, consignement =
+// aucune avance requise avant expedition).
+export type PaymentTerms = "total" | "partiel" | "consignement";
+// Un particulier n'a pas de fiche dans le carnet clients pro : son nom est
+// saisi librement sur la commande (individual_customer_name).
+export type CustomerType = "particulier" | "professionnel";
 
 export interface Profile {
   id: string;
@@ -59,6 +66,8 @@ export interface Customer {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  payment_terms: PaymentTerms;
+  payment_terms_percent: number | null;
   created_at: string;
 }
 
@@ -154,6 +163,10 @@ export interface Order {
   // SKU (modele PK) precis vise quand la commande n'a pas encore de sac.
   desired_sku: string | null;
   customer_id: string | null;
+  // "professionnel" => customer_id renvoie vers le carnet clients pro.
+  // "particulier" => customer_id est nul, le nom est saisi librement.
+  customer_type: CustomerType;
+  individual_customer_name: string | null;
   sale_type: SaleType;
   sale_price: number | null;
   order_date: string;

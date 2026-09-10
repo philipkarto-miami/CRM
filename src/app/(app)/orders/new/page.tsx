@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { PkModelBagPicker } from "@/components/PkModelBagPicker";
+import { CustomerTypePicker } from "@/components/CustomerTypePicker";
 import type { BagModel, Customer, SkuCatalog } from "@/types/database";
 
 export default async function NewOrderPage({ searchParams }: { searchParams: { error?: string } }) {
@@ -52,16 +53,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: { e
           <Input name="order_name" required placeholder="CMD-2607-01" />
         </FormRow>
 
-        <FormRow label="Client">
-          <Select name="customer_id" required>
-            <option value="">—</option>
-            {(customers as Pick<Customer, "id" | "full_name">[] | null)?.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.full_name}
-              </option>
-            ))}
-          </Select>
-        </FormRow>
+        <CustomerTypePicker customers={(customers as Pick<Customer, "id" | "full_name">[] | null) ?? []} />
 
         <PkModelBagPicker pkModels={pkModelOptions} bags={availableBags} />
         <p className="text-xs text-paper/40">

@@ -162,7 +162,11 @@ export default async function OrdersPage({
                     order.desired_sku ? `${order.desired_sku} (${desiredLabel ?? "?"})` : desiredLabel
                   }
                   matchingBags={matchingBags}
-                  customerName={order.customers?.full_name ?? "-"}
+                  customerName={
+                    order.customer_type === "particulier"
+                      ? order.individual_customer_name ?? "-"
+                      : order.customers?.full_name ?? "-"
+                  }
                 />
               );
             })}

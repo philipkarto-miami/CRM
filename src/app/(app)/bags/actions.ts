@@ -298,7 +298,7 @@ export async function updateStageProgress(
     if (stage?.phase === "shipping") {
       const { data: order } = await supabase
         .from("orders")
-        .select("payment_status")
+        .select("payment_status, customer_type, customer_id")
         .eq("bag_id", bagId)
         .neq("status", "annule")
         .maybeSingle();
@@ -308,10 +308,30 @@ export async function updateStageProgress(
           error: "Impossible de valider cette etape : aucune commande n'est rattachee a ce sac.",
         };
       }
-      if (order.payment_status !== "paye") {
+
+      // Un particulier n'a pas de conditions de paiement enregistrees : la
+      // regle reste stricte (paye a 100% requis). Un client pro peut avoir
+      // ete configure en "partiel" (un acompte suffit) ou "consignement"
+      // (aucune avance requise avant expedition).
+      let requiredStatuses: PaymentStatus[] = ["paye"];
+      if (order.customer_type === "professionnel" && order.customer_id) {
+        const { data: customer } = await supabase
+          .from("customers")
+          .select("payment_terms")
+          .eq("id", order.customer_id)
+          .maybeSingle();
+
+        if (customer?.payment_terms === "consignement") {
+          requiredStatuses = [];
+        } else if (customer?.payment_terms === "partiel") {
+          requiredStatuses = ["partiel", "paye"];
+        }
+      }
+
+      if (requiredStatuses.length > 0 && !requiredStatuses.includes(order.payment_status)) {
         return {
           error:
-            "Impossible de valider cette etape : le paiement de la commande n'est pas encore complet (statut actuel : " +
+            "Impossible de valider cette etape : le paiement de la commande n'est pas encore suffisant (statut actuel : " +
             (PAYMENT_STATUS_LABELS[order.payment_status as PaymentStatus] ?? order.payment_status) +
             ").",
         };

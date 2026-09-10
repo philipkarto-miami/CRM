@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentStatus, StagePhase, StageStatus, UserRole } from "@/types/database";
+import type { CustomerType, OrderStatus, PaymentStatus, PaymentTerms, StagePhase, StageStatus, UserRole } from "@/types/database";
 
 export const PHASE_LABELS: Record<StagePhase, string> = {
   reception: "Reception",
@@ -45,6 +45,17 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   en_attente: "En attente",
   partiel: "Partiel",
   paye: "Paye",
+};
+
+export const PAYMENT_TERMS_LABELS: Record<PaymentTerms, string> = {
+  total: "Paiement total",
+  partiel: "Paiement partiel",
+  consignement: "Consignement (sans avance)",
+};
+
+export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
+  particulier: "Particulier",
+  professionnel: "Professionnel",
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {

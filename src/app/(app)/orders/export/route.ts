@@ -58,7 +58,7 @@ export async function GET() {
         csvField(o.bags?.serial_number ?? ""),
         csvField(modele),
         csvField(o.desired_sku ?? sku),
-        csvField(o.customers?.full_name ?? ""),
+        csvField(o.customer_type === "particulier" ? o.individual_customer_name ?? "" : o.customers?.full_name ?? ""),
         csvField(ORDER_STATUS_LABELS[o.status] ?? o.status),
         csvField(o.bags ? PHASE_LABELS[o.bags.current_phase] : ""),
         csvField(PAYMENT_STATUS_LABELS[o.payment_status] ?? o.payment_status),

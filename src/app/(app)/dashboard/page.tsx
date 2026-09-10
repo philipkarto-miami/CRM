@@ -33,6 +33,14 @@ function daysBetween(from: string, to: string) {
   return Math.max(0, Math.round(ms / 86_400_000));
 }
 
+// Particulier => nom saisi librement sur la commande ; professionnel => nom
+// de la fiche du carnet clients pro.
+function customerLabel(order: OrderRow): string | null {
+  return order.customer_type === "particulier"
+    ? order.individual_customer_name
+    : order.customers?.full_name ?? null;
+}
+
 export default async function DashboardPage() {
   const supabase = createClient();
 
@@ -124,7 +132,7 @@ export default async function DashboardPage() {
         key: `match-${order.id}`,
         text: (
           <>
-            La commande <span className="text-gold">{order.customers?.full_name ?? "?"} — {desiredLabel}</span> attend
+            La commande <span className="text-gold">{customerLabel(order) ?? "?"} — {desiredLabel}</span> attend
             un sac
           </>
         ),
@@ -175,7 +183,7 @@ export default async function DashboardPage() {
             {PHASE_LABELS[bag.current_phase]}
           </>
         ),
-        sub: `Livraison prevue le ${formatDate(bag.delivery_date)}${linkedOrder?.customers?.full_name ? `, commande ${linkedOrder.customers.full_name}` : ""}`,
+        sub: `Livraison prevue le ${formatDate(bag.delivery_date)}${linkedOrder && customerLabel(linkedOrder) ? `, commande ${customerLabel(linkedOrder)}` : ""}`,
         action: (
           <Link href={`/bags/${bag.id}`} className="shrink-0 whitespace-nowrap rounded-sm border border-line px-3 py-1.5 text-[11px] text-paper/65 hover:border-gold hover:text-gold">
             Voir le sac

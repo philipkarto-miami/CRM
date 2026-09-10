@@ -19,6 +19,21 @@ export async function createOrder(formData: FormData) {
   const bagId = str(formData, "bag_id") || null;
   const desiredSku = str(formData, "desired_sku") || null;
 
+  // Type de client : "professionnel" pointe vers le carnet clients pro
+  // (customer_id) ; "particulier" n'a pas de fiche, le nom est saisi
+  // librement sur la commande (individual_customer_name).
+  const customerType = str(formData, "customer_type") === "particulier" ? "particulier" : "professionnel";
+  const customerId = customerType === "professionnel" ? str(formData, "customer_id") || null : null;
+  const individualCustomerName =
+    customerType === "particulier" ? str(formData, "individual_customer_name") : null;
+
+  if (customerType === "professionnel" && !customerId) {
+    redirect(`/orders/new?error=${encodeURIComponent("Choisis un client professionnel")}`);
+  }
+  if (customerType === "particulier" && !individualCustomerName) {
+    redirect(`/orders/new?error=${encodeURIComponent("Indique le nom ou la reference du client particulier")}`);
+  }
+
   // Une commande a soit un sac deja en stock, soit (si aucun sac disponible)
   // un modele PK (SKU) souhaite : elle part alors dans la colonne "sac a
   // commander" en attendant qu'un sac correspondant arrive. Le modele
@@ -74,7 +89,9 @@ export async function createOrder(formData: FormData) {
     bag_id: bagId,
     desired_model_id: bagId ? null : desiredModelId,
     desired_sku: bagId ? null : desiredSku,
-    customer_id: str(formData, "customer_id") || null,
+    customer_type: customerType,
+    customer_id: customerId,
+    individual_customer_name: individualCustomerName,
     sale_type: str(formData, "sale_type") || "assemble",
     sale_price: str(formData, "sale_price") ? Number(str(formData, "sale_price")) : null,
     order_date: str(formData, "order_date"),

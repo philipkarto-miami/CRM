@@ -6,6 +6,8 @@ import { FormRow, Input, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { SavedToast } from "@/components/SavedToast";
+import { PaymentTermsFields } from "@/components/PaymentTermsFields";
+import { PAYMENT_TERMS_LABELS } from "@/lib/constants";
 import type { Customer } from "@/types/database";
 
 export default async function CustomersPage({ searchParams }: { searchParams: { error?: string } }) {
@@ -15,7 +17,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
   return (
     <div>
       <SavedToast />
-      <PageHeader eyebrow="Clients" title="Carnet clients" />
+      <PageHeader eyebrow="Clients Pro" title="Carnet clients professionnels" />
 
       {searchParams?.error && <p className="mb-4 text-sm text-danger">Erreur : {searchParams.error}</p>}
 
@@ -28,6 +30,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
                   <th className="px-4 py-3">Nom</th>
                   <th className="px-4 py-3">Email</th>
                   <th className="px-4 py-3">Telephone</th>
+                  <th className="px-4 py-3">Conditions de paiement</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -37,6 +40,12 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
                     <td className="px-4 py-3 text-paper/80">{c.full_name}</td>
                     <td className="px-4 py-3 text-paper/60">{c.email ?? "-"}</td>
                     <td className="px-4 py-3 text-paper/60">{c.phone ?? "-"}</td>
+                    <td className="px-4 py-3 text-paper/60">
+                      {PAYMENT_TERMS_LABELS[c.payment_terms]}
+                      {c.payment_terms === "partiel" && c.payment_terms_percent
+                        ? ` (${c.payment_terms_percent}%)`
+                        : ""}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <form action={deleteCustomer.bind(null, c.id)}>
                         <ConfirmSubmitButton
@@ -52,7 +61,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
                 ))}
                 {(!customers || customers.length === 0) && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-paper/40">
+                    <td colSpan={5} className="px-4 py-10 text-center text-paper/40">
                       Aucun client enregistre.
                     </td>
                   </tr>
@@ -63,7 +72,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
         </div>
 
         <Card>
-          <CardTitle>Nouveau client</CardTitle>
+          <CardTitle>Nouveau client pro</CardTitle>
           <form action={createCustomer} className="space-y-3">
             <FormRow label="Nom complet">
               <Input name="full_name" required />
@@ -77,6 +86,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
             <FormRow label="Adresse">
               <Textarea name="address" rows={2} />
             </FormRow>
+            <PaymentTermsFields />
             <FormRow label="Notes">
               <Textarea name="notes" rows={2} />
             </FormRow>

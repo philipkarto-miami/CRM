@@ -11,12 +11,20 @@ function str(formData: FormData, key: string) {
 
 export async function createCustomer(formData: FormData) {
   const supabase = createClient();
+  const paymentTerms = str(formData, "payment_terms") || "total";
+  const paymentTermsPercent =
+    paymentTerms === "partiel" && str(formData, "payment_terms_percent")
+      ? Number(str(formData, "payment_terms_percent"))
+      : null;
+
   const { error } = await supabase.from("customers").insert({
     full_name: str(formData, "full_name"),
     email: str(formData, "email"),
     phone: str(formData, "phone"),
     address: str(formData, "address"),
     notes: str(formData, "notes"),
+    payment_terms: paymentTerms,
+    payment_terms_percent: paymentTermsPercent,
   });
 
   if (error) {
