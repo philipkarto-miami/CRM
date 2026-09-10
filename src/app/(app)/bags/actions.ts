@@ -125,13 +125,15 @@ export async function updateBag(bagId: string, formData: FormData) {
     canvas_notes: str(formData, "canvas_notes"),
     supplier_id: str(formData, "supplier_id") || null,
     auth_number_supplier: str(formData, "auth_number_supplier"),
-    purchase_price: str(formData, "purchase_price") ? Number(str(formData, "purchase_price")) : null,
     purchase_date: str(formData, "purchase_date"),
     factory_date: str(formData, "factory_date"),
     photos_link: str(formData, "photos_link"),
-    sale_type: str(formData, "sale_type") || "disassemble",
     invoice_number: str(formData, "invoice_number"),
-    delivery_date: str(formData, "delivery_date"),
+    // purchase_price, sale_type et delivery_date ne sont plus saisis depuis ce
+    // formulaire (prix d'achat et type de vente juges non pertinents ici ;
+    // sale_type est deja pilote automatiquement par assignSku(), et
+    // delivery_date reflete desormais la date d'expedition prevue de la
+    // commande liee, voir orders/actions.ts) : on ne les touche donc pas ici.
     // current_phase n'est plus modifiable a la main : elle avance seule
     // (trigger advance_bag_phase) quand toutes les etapes d'une phase sont
     // cochees. Voir migration 0008.

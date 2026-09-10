@@ -158,7 +158,7 @@ export default async function BagDetailPage({
         </div>
         {deliveryText && (
           <div className="md:text-right">
-            <p className="text-[10px] uppercase tracking-widest2 text-white/40">Livraison prevue</p>
+            <p className="text-[10px] uppercase tracking-widest2 text-white/40">Expedition prevue</p>
             <p className="mt-0.5 text-sm text-white">{deliveryText}</p>
           </div>
         )}
@@ -269,10 +269,7 @@ export default async function BagDetailPage({
               </FormRow>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <FormRow label="Prix d'achat (€)">
-                <Input type="number" step="0.01" name="purchase_price" defaultValue={typedBag.purchase_price ?? ""} />
-              </FormRow>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormRow label="Date d'achat">
                 <Input type="date" name="purchase_date" defaultValue={typedBag.purchase_date ?? ""} />
               </FormRow>
@@ -285,24 +282,16 @@ export default async function BagDetailPage({
               <Input name="photos_link" defaultValue={typedBag.photos_link ?? ""} />
             </FormRow>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormRow label="Type de vente">
-                <Select name="sale_type" defaultValue={typedBag.sale_type}>
-                  <option value="disassemble">Desassemble</option>
-                  <option value="assemble">Assemble</option>
-                </Select>
-              </FormRow>
-              <FormRow label="Phase actuelle (automatique)">
-                <Input value={PHASE_LABELS[typedBag.current_phase]} disabled />
-              </FormRow>
-            </div>
+            <FormRow label="Phase actuelle (automatique)">
+              <Input value={PHASE_LABELS[typedBag.current_phase]} disabled />
+            </FormRow>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormRow label="N° de facture">
                 <Input name="invoice_number" defaultValue={typedBag.invoice_number ?? ""} />
               </FormRow>
-              <FormRow label="Date de livraison prevue">
-                <Input type="date" name="delivery_date" defaultValue={typedBag.delivery_date ?? ""} />
+              <FormRow label="Date d'expedition prevue (commande)">
+                <Input type="date" value={typedBag.delivery_date ?? ""} disabled />
               </FormRow>
             </div>
 

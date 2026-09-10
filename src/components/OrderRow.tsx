@@ -34,6 +34,7 @@ export function OrderRow({
     fd.set("tracking_number", order.tracking_number ?? "");
     fd.set("shipped_at", order.shipped_at ?? "");
     fd.set("sale_price", order.sale_price?.toString() ?? "");
+    fd.set("expected_shipping_date", order.expected_shipping_date ?? "");
     fd.set("notes", order.notes ?? "");
     startTransition(() => {
       updateOrder(order.id, fd);

@@ -84,6 +84,8 @@ export async function createOrder(formData: FormData) {
     }
   }
 
+  const expectedShippingDate = str(formData, "expected_shipping_date");
+
   const payload = {
     order_name: str(formData, "order_name"),
     bag_id: bagId,
@@ -95,6 +97,7 @@ export async function createOrder(formData: FormData) {
     sale_type: str(formData, "sale_type") || "assemble",
     sale_price: str(formData, "sale_price") ? Number(str(formData, "sale_price")) : null,
     order_date: str(formData, "order_date"),
+    expected_shipping_date: expectedShippingDate,
     status: bagId ? "recu" : "sac_a_commander",
     notes: str(formData, "notes"),
     created_by: user?.id ?? null,
@@ -104,6 +107,13 @@ export async function createOrder(formData: FormData) {
 
   if (error) {
     redirect(`/orders/new?error=${encodeURIComponent(error.message)}`);
+  }
+
+  // La date d'expedition prevue pilote deja les calculs de retard existants
+  // via bags.delivery_date (tableau de bord, page Fabrication, liste des
+  // sacs) : on la recopie tout de suite si un sac est deja rattache.
+  if (bagId) {
+    await supabase.from("bags").update({ delivery_date: expectedShippingDate }).eq("id", bagId);
   }
 
   revalidatePath("/orders");
@@ -129,7 +139,7 @@ export async function linkOrderToBag(orderId: string, bagId: string): Promise<{ 
   }
 
   const [{ data: order }, { data: bag }] = await Promise.all([
-    supabase.from("orders").select("desired_sku, bag_id").eq("id", orderId).maybeSingle(),
+    supabase.from("orders").select("desired_sku, bag_id, expected_shipping_date").eq("id", orderId).maybeSingle(),
     supabase.from("bags").select("sku").eq("id", bagId).maybeSingle(),
   ]);
 
@@ -162,6 +172,10 @@ export async function linkOrderToBag(orderId: string, bagId: string): Promise<{ 
   if (error) return { error: error.message };
   if (!updated) return { error: "Cette commande a deja ete rattachee entre-temps." };
 
+  // Meme logique qu'a la creation : la date d'expedition prevue de la
+  // commande devient la date de retard suivie sur le sac desormais rattache.
+  await supabase.from("bags").update({ delivery_date: order.expected_shipping_date ?? null }).eq("id", bagId);
+
   revalidatePath("/orders");
   revalidatePath("/orders/sourcing");
   revalidatePath("/bags");
@@ -172,6 +186,8 @@ export async function linkOrderToBag(orderId: string, bagId: string): Promise<{ 
 export async function updateOrder(orderId: string, formData: FormData) {
   const supabase = createClient();
 
+  const expectedShippingDate = str(formData, "expected_shipping_date");
+
   const payload = {
     status: str(formData, "status"),
     payment_status: str(formData, "payment_status"),
@@ -180,10 +196,23 @@ export async function updateOrder(orderId: string, formData: FormData) {
     tracking_number: str(formData, "tracking_number"),
     shipped_at: str(formData, "shipped_at"),
     sale_price: str(formData, "sale_price") ? Number(str(formData, "sale_price")) : null,
+    expected_shipping_date: expectedShippingDate,
     notes: str(formData, "notes"),
   };
 
-  await supabase.from("orders").update(payload).eq("id", orderId);
+  const { data: updated } = await supabase
+    .from("orders")
+    .update(payload)
+    .eq("id", orderId)
+    .select("bag_id")
+    .maybeSingle();
+
+  // Garde bags.delivery_date synchronise si la date d'expedition prevue
+  // change apres coup (ex: reprogrammation d'une commande deja rattachee).
+  if (updated?.bag_id) {
+    await supabase.from("bags").update({ delivery_date: expectedShippingDate }).eq("id", updated.bag_id);
+  }
+
   revalidatePath("/orders");
 }
 

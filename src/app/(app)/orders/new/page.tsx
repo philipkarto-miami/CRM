@@ -63,9 +63,19 @@ export default async function NewOrderPage({ searchParams }: { searchParams: { e
           en « Sac à commander ».
         </p>
 
-        <FormRow label="Date de commande">
-          <Input type="date" name="order_date" defaultValue={new Date().toISOString().slice(0, 10)} />
-        </FormRow>
+        <div className="grid grid-cols-2 gap-4">
+          <FormRow label="Date de commande">
+            <Input type="date" name="order_date" defaultValue={new Date().toISOString().slice(0, 10)} />
+          </FormRow>
+          <FormRow label="Date d'expedition prevue">
+            <Input type="date" name="expected_shipping_date" />
+          </FormRow>
+        </div>
+        <p className="text-xs text-paper/40">
+          Cette date pilote le suivi des retards de fabrication : une fois le sac rattache, elle
+          s&apos;affiche sur sa fiche et declenche l&apos;alerte de retard si elle est depassee avant
+          l&apos;expedition.
+        </p>
 
         <FormRow label="Notes">
           <Textarea name="notes" rows={3} />

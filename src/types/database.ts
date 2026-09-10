@@ -175,6 +175,10 @@ export interface Order {
   sale_type: SaleType;
   sale_price: number | null;
   order_date: string;
+  // Saisie a la commande, recopiee automatiquement dans bags.delivery_date
+  // du sac rattache (voir orders/actions.ts) pour piloter les calculs de
+  // retard existants sans dupliquer la logique.
+  expected_shipping_date: string | null;
   status: OrderStatus;
   payment_status: PaymentStatus;
   invoice_number: string | null;
