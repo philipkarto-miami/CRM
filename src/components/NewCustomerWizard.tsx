@@ -93,31 +93,41 @@ export function NewCustomerWizard() {
       </div>
 
       <div className="flex items-center justify-between pt-2">
-        {step === 2 ? (
-          <Button type="button" variant="secondary" onClick={() => setStep(1)}>
-            Precedent
-          </Button>
-        ) : (
-          <span />
-        )}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setStep(1)}
+          className={cn(step !== 2 && "invisible")}
+        >
+          Precedent
+        </Button>
 
-        {step === 1 ? (
-          <Button
-            type="button"
-            onClick={() => {
-              const fullName = formRef.current?.elements.namedItem("full_name") as HTMLInputElement | null;
-              if (fullName && !fullName.value.trim()) {
-                fullName.reportValidity();
-                return;
-              }
-              setStep(2);
-            }}
-          >
-            Suivant
-          </Button>
-        ) : (
-          <Button type="submit">Ajouter le client</Button>
-        )}
+        {/*
+          Suivant (type="button") et Ajouter le client (type="submit") restent
+          deux boutons distincts, toujours montes, juste bascules en CSS :
+          les rendre via un ternaire au meme endroit de l'arbre faisait que
+          React reutilisait le meme noeud DOM et changeait juste son attribut
+          "type" a la volee, ce qui soumettait le formulaire immediatement
+          (le navigateur relit le type au moment de l'action par defaut du
+          clic, apres le re-render synchrone de React).
+        */}
+        <Button
+          type="button"
+          className={cn(step !== 1 && "hidden")}
+          onClick={() => {
+            const fullName = formRef.current?.elements.namedItem("full_name") as HTMLInputElement | null;
+            if (fullName && !fullName.value.trim()) {
+              fullName.reportValidity();
+              return;
+            }
+            setStep(2);
+          }}
+        >
+          Suivant
+        </Button>
+        <Button type="submit" className={cn(step !== 2 && "hidden")}>
+          Ajouter le client
+        </Button>
       </div>
     </form>
   );
