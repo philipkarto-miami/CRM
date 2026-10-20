@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { PaymentStatus, SkuCatalog, StagePhase, StageStatus } from "@/types/database";
 import { PAYMENT_STATUS_LABELS } from "@/lib/constants";
-import { bandsAllowed, isFixedStage, phaseRank } from "@/lib/stages";
+import { fixedStageApplies, isFixedStage, phaseRank } from "@/lib/stages";
 import { skuFitsBag, type FitBag, type FitModel } from "@/lib/sku";
 
 function str(formData: FormData, key: string) {
@@ -304,9 +304,13 @@ export async function assignSku(
       .maybeSingle(),
   ]);
 
-  // "Ajout des bandes" : etape fixe, mais uniquement Speedy 35+ et Keepall.
+  // Deux etapes fixes dependent du modele du sac associe au SKU : "Ajout des
+  // bandes" (Speedy 35+ et Keepall) et "Broderie cote" (tous sauf Neverfull).
+  // Le modele du SKU prime ; a defaut, celui du sac, puis son libelle.
   const bagModel = Array.isArray(bagRow?.bag_models) ? bagRow?.bag_models[0] : bagRow?.bag_models;
-  const bandsOk = bandsAllowed(bagModel?.name ?? bagRow?.model_label, bagModel?.base_size ?? bagRow?.size);
+  const skuModel = catalogEntry.bag_model_id ? models.get(catalogEntry.bag_model_id as string) : undefined;
+  const ruleName: string | null | undefined = skuModel?.name ?? bagModel?.name ?? bagRow?.model_label;
+  const ruleSize: string | null | undefined = skuModel?.baseSize ?? bagModel?.base_size ?? bagRow?.size;
   const currentRank = phaseRank((bagRow?.current_phase ?? "reception") as StagePhase);
 
   const existingByStage = new Map((existingProgress ?? []).map((p) => [p.stage_id, p]));
@@ -324,11 +328,12 @@ export async function assignSku(
     // ete seede qu'avec reception + desassemblage ; attribuer un SKU en fait
     // desormais un produit fini, il faut donc completer le reste du parcours
     // (controle qualite, emballage, expedition, comptabilite...). On ne recree
-    // pas d'etape dans une phase deja passee. Seule exception : les bandes,
-    // reservees aux Speedy 35+ et Keepall.
+    // pas d'etape dans une phase deja passee. Exceptions selon le modele :
+    // bandes (Speedy 35+ / Keepall) et broderie cote (pas les Neverfull) ; une
+    // etape qui ne s'applique pas est retiree tant qu'elle n'est pas commencee.
     if (isFixedStage(stage)) {
-      if (stage.catalog_column === "BANDS" && !bandsOk) {
-        if (existing) toDelete.push(existing.id);
+      if (!fixedStageApplies(stage.catalog_column, ruleName, ruleSize)) {
+        if (existing && existing.status === "a_faire") toDelete.push(existing.id);
       } else if (!existing) {
         if (phaseRank(stage.phase) >= currentRank) {
           toInsert.push({ bag_id: bagId, stage_id: stage.id, status: "a_faire" });

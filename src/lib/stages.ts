@@ -44,11 +44,30 @@ export function bandsAllowed(modelName: string | null | undefined, baseSize: str
   return false;
 }
 
+// "Broderie cote" (colonne EMBROIDERY_SIDE) : pour tous les sacs, sauf les
+// Neverfull. Meme regle que stage_applies() cote base.
+export function isNeverfull(modelName: string | null | undefined): boolean {
+  return (modelName ?? "").toLowerCase().includes("neverfull");
+}
+
+// Les deux seules etapes fixes qui dependent du modele du sac :
+//   - BANDS ("Ajout des bandes") : Speedy 35 et plus, Keepall ;
+//   - EMBROIDERY_SIDE ("Broderie cote") : tous sauf Neverfull.
+// Toute autre etape fixe s'applique a tous les sacs.
+export function fixedStageApplies(
+  catalogColumn: string | null | undefined,
+  modelName: string | null | undefined,
+  baseSize: string | null | undefined
+): boolean {
+  if (catalogColumn === "BANDS") return bandsAllowed(modelName, baseSize);
+  if (catalogColumn === "EMBROIDERY_SIDE") return !isNeverfull(modelName);
+  return true;
+}
+
 // Etape "fixe" = appliquee d'office a tous les sacs, sans passer par la recette
 // du SKU : toutes les etapes des phases autres que la fabrication, ainsi que
 // les etapes de fabrication sans colonne de catalogue (ex. "Demarrage
-// fabrication"). Seule exception : "Ajout des bandes" (colonne BANDS), fixe
-// mais reservee aux Speedy 35+ et Keepall (voir bandsAllowed).
+// fabrication"). Exceptions selon le modele : voir fixedStageApplies.
 export function isFixedStage(stage: { phase: StagePhase; catalog_column: string | null }): boolean {
   return stage.phase !== "manufacturing" || !stage.catalog_column;
 }
