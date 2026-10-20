@@ -5,6 +5,7 @@ import { SkuDesignForm } from "@/components/SkuDesignForm";
 import { SavedToast } from "@/components/SavedToast";
 import { MIGRATION_0029_MESSAGE, deriveDesign, fetchAllRows } from "@/lib/catalogue";
 import { COLOR_NONE, type DesignRow } from "@/lib/sku";
+import { toRecipeSteps } from "@/lib/stages";
 
 type CatalogRow = {
   sku: string;
@@ -14,7 +15,13 @@ type CatalogRow = {
   edition: string | null;
   photo_path: string | null;
   photo_path_back: string | null;
+  steps: Record<string, number | string> | null;
 };
+
+// Cle stable d'une recette (pour comparer deux recettes entre elles).
+function recipeKey(steps: Record<string, number | string> | null): string {
+  return JSON.stringify(Object.entries(steps ?? {}).sort(([a], [b]) => a.localeCompare(b)));
+}
 
 // Fiche d'un design : tous ses codes PK, avec deux listes de cases (modeles,
 // couleurs) pour creer ou retirer des codes d'un coup, les photos recto/verso
@@ -29,15 +36,22 @@ export default async function SkuDesignPage({
   const design = decodeURIComponent(params.design);
   const supabase = createClient();
 
-  const [catalog, { data: models }] = await Promise.all([
+  const [catalog, { data: models }, { data: stages }] = await Promise.all([
     fetchAllRows<CatalogRow>((from, to) =>
       supabase
         .from("sku_catalog")
-        .select("sku, design, bag_model_id, color_code, edition, photo_path, photo_path_back")
+        .select("sku, design, bag_model_id, color_code, edition, photo_path, photo_path_back, steps")
         .order("sku")
         .range(from, to)
     ),
     supabase.from("bag_models").select("id, name, base_size, brands(name)").order("sort_order"),
+    supabase
+      .from("production_stages")
+      .select("name, catalog_column, phase, order_index")
+      .not("catalog_column", "is", null)
+      .eq("is_active", true)
+      .order("phase")
+      .order("order_index"),
   ]);
 
   // Colonnes `design` / `color_code` absentes : la migration 0029 n'a pas ete
@@ -104,6 +118,30 @@ export default async function SkuDesignPage({
     };
   }
 
+  // Recettes : une par couleur, commune a toutes les tailles/modeles. Si les
+  // codes d'une couleur n'ont pas tous la meme recette (heritage), on propose
+  // la plus courante et on le signale : l'enregistrement les alignera.
+  const recipeGroups = new Map<string, Map<string, { count: number; steps: Record<string, number | string> }>>();
+  for (const r of designCodes) {
+    const key = r.color_code ?? COLOR_NONE;
+    const variants = recipeGroups.get(key) ?? new Map();
+    const rk = recipeKey(r.steps);
+    const entry = variants.get(rk) ?? { count: 0, steps: r.steps ?? {} };
+    entry.count += 1;
+    variants.set(rk, entry);
+    recipeGroups.set(key, variants);
+  }
+  const recipes: Record<string, Record<string, number | string>> = {};
+  const divergentColors: string[] = [];
+  for (const [key, variants] of recipeGroups) {
+    const sorted = [...variants.values()].sort((a, b) => b.count - a.count);
+    recipes[key] = sorted[0].steps;
+    if (sorted.length > 1) divergentColors.push(key);
+  }
+  // Une couleur ajoutee dans la fiche demarre avec la recette du premier code
+  // (c'est aussi celle que recopie l'enregistrement pour les nouveaux codes).
+  const referenceRecipe = designCodes[0].steps ?? {};
+
   // Usage des codes (pour le renommage) : sacs et commandes concernes.
   const [{ count: bagsCount }, { count: ordersCount }] = await Promise.all([
     supabase.from("bags").select("id", { count: "exact", head: true }).in("sku", codes),
@@ -130,6 +168,10 @@ export default async function SkuDesignPage({
         rows={rows}
         allSkus={catalog.rows.map((r) => r.sku)}
         photos={photos}
+        stepOptions={toRecipeSteps(stages ?? [])}
+        recipes={recipes}
+        divergentColors={divergentColors}
+        referenceRecipe={referenceRecipe}
         bagsCount={bagsCount ?? 0}
         ordersCount={ordersCount ?? 0}
         error={searchParams?.error}

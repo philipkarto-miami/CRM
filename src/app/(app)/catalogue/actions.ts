@@ -37,6 +37,29 @@ function readSteps(formData: FormData): Record<string, number | string> {
   return steps;
 }
 
+// Recettes saisies dans la fiche design : une par couleur, champs
+// "recipe__<COULEUR>__<ETAPE>". Seules les couleurs marquees "recipe_touched__"
+// sont renvoyees (une recette videe n'envoie aucun champ d'etape : le marqueur
+// permet de la distinguer d'une recette non modifiee).
+function readColorRecipes(formData: FormData, colorKeys: string[]): Map<string, Record<string, number | string>> {
+  const recipes = new Map<string, Record<string, number | string>>();
+  for (const key of colorKeys) {
+    if (formData.get(`recipe_touched__${key}`) === "1") recipes.set(key, {});
+  }
+  for (const [name, value] of formData.entries()) {
+    if (typeof value !== "string") continue;
+    const match = /^recipe__([A-Z0-9]+)__(.+)$/.exec(name);
+    if (!match) continue;
+    const target = recipes.get(match[1]);
+    if (!target) continue;
+    const raw = value.trim();
+    if (!raw) continue;
+    const n = Number(raw);
+    target[match[2]] = Number.isFinite(n) && raw === String(n) ? n : raw;
+  }
+  return recipes;
+}
+
 // Cree une nouvelle etape de fabrication (globale, disponible pour tous les
 // SKU ensuite) depuis l'editeur du catalogue. Reserve aux admins (meme regle
 // que la page Reglages > Etapes de fabrication). Seule la phase Fabrication
@@ -384,11 +407,25 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
     photosSaved += Object.keys(payload).length;
   }
 
+  // Recettes de fabrication : une par couleur, commune a tous les modeles et
+  // tailles du design (seule la couleur change le travail). On l'applique a
+  // tous les codes de la couleur, y compris ceux qui viennent d'etre crees.
+  const recipes = readColorRecipes(formData, colorKeys);
+  let recipesSaved = 0;
+  for (const [key, steps] of recipes) {
+    let query = supabase.from("sku_catalog").update({ steps }).eq("design", design);
+    query = key === COLOR_NONE ? query.is("color_code", null) : query.eq("color_code", key);
+    const { error } = await query;
+    if (error) fail(error.message);
+    recipesSaved += 1;
+  }
+
   const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
   const parts: string[] = [];
   if (plan.create.length > 0) parts.push(plural(plan.create.length, "code cree", "codes crees"));
   if (removed > 0) parts.push(plural(removed, "code supprime", "codes supprimes"));
   if (photosSaved > 0) parts.push(plural(photosSaved, "photo enregistree", "photos enregistrees"));
+  if (recipesSaved > 0) parts.push(plural(recipesSaved, "recette enregistree", "recettes enregistrees"));
   if (blocked > 0) parts.push(plural(blocked, "code garde (utilise par des sacs)", "codes gardes (utilises par des sacs)"));
   if (plan.conflicts.length > 0) {
     parts.push(plural(plan.conflicts.length, "code deja existant ailleurs ignore", "codes deja existants ailleurs ignores"));
@@ -406,11 +443,12 @@ export async function updateSkuCatalogEntry(sku: string, formData: FormData) {
   const photoPath = await uploadPhotoIfPresent(supabase, sku, formData, "photo");
   const photoPathBack = await uploadPhotoIfPresent(supabase, sku, formData, "photo_back");
 
+  // La recette (steps) n'est plus modifiable code par code : elle est commune a
+  // tous les codes d'une meme couleur et se regle dans la fiche du design.
   const payload: Record<string, unknown> = {
     edition: str(formData, "edition"),
     description: str(formData, "description"),
     bag_model_id: str(formData, "bag_model_id"),
-    steps: readSteps(formData),
   };
   if (photoPath) payload.photo_path = photoPath;
   if (photoPathBack) payload.photo_path_back = photoPathBack;

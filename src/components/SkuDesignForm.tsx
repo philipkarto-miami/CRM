@@ -5,11 +5,14 @@ import Link from "next/link";
 import { saveSkuDesign } from "@/app/(app)/catalogue/actions";
 import { PhotoDropzone } from "@/components/PhotoDropzone";
 import { RenameDesignForm } from "@/components/RenameDesignForm";
+import { SkuStepsEditor } from "@/components/SkuStepsEditor";
 import { COLOR_NONE, SKU_COLORS, planDesignChanges, type DesignRow } from "@/lib/sku";
+import type { RecipeStepOption } from "@/lib/stages";
 import { cn } from "@/lib/utils";
 
 type ModelOption = { id: string; brand: string; name: string; baseSize: string | null };
 type ColorPhotos = { front: string | null; back: string | null };
+type Recipe = Record<string, number | string>;
 
 const chipBase =
   "flex cursor-pointer select-none items-center gap-2 rounded-sm border px-3 py-1.5 text-sm transition-colors";
@@ -23,6 +26,10 @@ export function SkuDesignForm({
   rows,
   allSkus,
   photos,
+  stepOptions,
+  recipes,
+  divergentColors,
+  referenceRecipe,
   bagsCount,
   ordersCount,
   error,
@@ -34,6 +41,13 @@ export function SkuDesignForm({
   allSkus: string[];
   // Photos existantes, par couleur (cle : COLOR_NONE ou code couleur).
   photos: Record<string, ColorPhotos>;
+  // Etapes de fabrication disponibles, recette actuelle de chaque couleur,
+  // couleurs dont les codes n'ont pas tous la meme recette (heritage), et
+  // recette de depart d'une couleur ajoutee.
+  stepOptions: RecipeStepOption[];
+  recipes: Record<string, Recipe>;
+  divergentColors: string[];
+  referenceRecipe: Recipe;
   bagsCount: number;
   ordersCount: number;
   error?: string;
@@ -48,6 +62,8 @@ export function SkuDesignForm({
     () => new Set(managed.map((r) => r.colorCode ?? COLOR_NONE))
   );
   const [photosPicked, setPhotosPicked] = useState(0);
+  const [recipeTouched, setRecipeTouched] = useState<Set<string>>(() => new Set());
+  const [activeColor, setActiveColor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const allSkuSet = useMemo(() => new Set(allSkus), [allSkus]);
@@ -91,7 +107,18 @@ export function SkuDesignForm({
     return slots;
   }, [selectedColors]);
 
-  const hasChanges = plan.create.length > 0 || plan.remove.length > 0 || photosPicked > 0;
+  // Recettes modifiees pour des couleurs encore cochees (une couleur decochee
+  // n'est plus envoyee : ses modifications sont ignorees).
+  const touchedRecipes = [...recipeTouched].filter((k) => selectedColors.has(k));
+  const divergent = useMemo(() => new Set(divergentColors), [divergentColors]);
+  const activeKey = photoSlots.some((s) => s.key === activeColor) ? activeColor : photoSlots[0]?.key ?? null;
+
+  function markRecipe(key: string) {
+    setRecipeTouched((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+  }
+
+  const hasChanges =
+    plan.create.length > 0 || plan.remove.length > 0 || photosPicked > 0 || touchedRecipes.length > 0;
   const canSubmit = hasChanges && selectedModels.size > 0 && selectedColors.size > 0 && !submitting;
 
   function toggle(set: Set<string>, value: string): Set<string> {
@@ -135,7 +162,7 @@ export function SkuDesignForm({
     ? "Enregistrement…"
     : `Enregistrer${plan.create.length > 0 ? ` · +${plan.create.length}` : ""}${
         plan.remove.length > 0 ? ` · −${plan.remove.length}` : ""
-      }${photosPicked > 0 ? " · photos" : ""}`;
+      }${photosPicked > 0 ? " · photos" : ""}${touchedRecipes.length > 0 ? " · recette" : ""}`;
 
   return (
     <div className="pb-20">
@@ -349,6 +376,77 @@ export function SkuDesignForm({
               )}
             </div>
           </div>
+        </div>
+
+        <div className="card mt-6 rounded-sm p-5">
+          <h3 className="mb-1 font-serif text-[17px] text-paper">Recette de fabrication</h3>
+          <p className="mb-3.5 text-xs text-paper/55">
+            Une recette par couleur, commune à tous les modèles et toutes les tailles du design : seule la couleur
+            change le travail. Elle s&apos;applique à chaque code de la couleur et aux sacs qui reçoivent ensuite ce
+            code.
+          </p>
+
+          {photoSlots.length === 0 ? (
+            <p className="text-sm text-paper/45">Coche une couleur pour régler sa recette.</p>
+          ) : (
+            <>
+              <div className="mb-4 flex flex-wrap gap-2">
+                {photoSlots.map((slot) => (
+                  <button
+                    key={slot.key}
+                    type="button"
+                    onClick={() => setActiveColor(slot.key)}
+                    className={cn(chipBase, slot.key === activeKey ? chipOn : chipOff)}
+                  >
+                    {slot.swatch && (
+                      <span
+                        aria-hidden="true"
+                        className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10"
+                        style={{ background: slot.swatch }}
+                      />
+                    )}
+                    {slot.label}
+                    {recipeTouched.has(slot.key) && <span className="text-[11px] text-gold">● modifiée</span>}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tous les editeurs restent montes (seul l'actif est visible) pour que
+                  chaque recette modifiee soit envoyee avec le formulaire. */}
+              {photoSlots.map((slot) => (
+                <div key={slot.key} className={slot.key === activeKey ? "max-w-2xl" : "hidden"}>
+                  {divergent.has(slot.key) && (
+                    <div className="mb-3 rounded-sm border border-line bg-gold/5 px-3.5 py-2.5 text-xs text-paper/70">
+                      Les codes de cette couleur n&apos;ont pas tous la même recette (ancien fonctionnement). Celle-ci
+                      est la plus courante.{" "}
+                      {recipeTouched.has(slot.key) ? (
+                        <span className="text-gold">Elle sera appliquée à tous à l&apos;enregistrement.</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => markRecipe(slot.key)}
+                          className="text-gold underline underline-offset-2"
+                        >
+                          L&apos;appliquer à tous les codes
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <SkuStepsEditor
+                    fieldPrefix={`recipe__${slot.key}__`}
+                    title={`Recette — ${slot.label}`}
+                    description="L'ordre ci-dessous est celui appliqué à chaque sac de cette couleur."
+                    availableSteps={stepOptions}
+                    initialSteps={recipes[slot.key] ?? referenceRecipe}
+                    onDirty={() => markRecipe(slot.key)}
+                  />
+                  {recipeTouched.has(slot.key) && (
+                    <input type="hidden" name={`recipe_touched__${slot.key}`} value="1" />
+                  )}
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
         <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between border-t border-line bg-bone px-4 py-3.5 md:left-64 md:px-8">

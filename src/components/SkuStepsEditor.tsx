@@ -12,9 +12,21 @@ type StepOption = { code: string; name: string; phase: StagePhase };
 export function SkuStepsEditor({
   availableSteps,
   initialSteps,
+  fieldPrefix = "step_",
+  title = "Recette de fabrication",
+  description = "L'ordre ci-dessous est celui applique a chaque sac qui recoit ce SKU.",
+  onDirty,
 }: {
   availableSteps: StepOption[];
   initialSteps: Record<string, number | string>;
+  // Prefixe des champs du formulaire : "step_" par defaut ; plusieurs editeurs
+  // peuvent coexister dans un meme formulaire avec des prefixes differents
+  // (ex : un par couleur dans la fiche design).
+  fieldPrefix?: string;
+  title?: string;
+  description?: string;
+  // Appele a chaque modification (ajout, retrait, ordre, note).
+  onDirty?: () => void;
 }) {
   const [steps, setSteps] = useState<StepOption[]>(availableSteps);
 
@@ -65,6 +77,7 @@ export function SkuStepsEditor({
   function addToOrder(code: string) {
     setOrderedCodes((prev) => [...prev, code]);
     setQuery("");
+    onDirty?.();
   }
 
   function removeFromOrder(code: string) {
@@ -74,6 +87,7 @@ export function SkuStepsEditor({
       delete next[code];
       return next;
     });
+    onDirty?.();
   }
 
   function reorder(from: number, to: number) {
@@ -83,6 +97,7 @@ export function SkuStepsEditor({
       next.splice(to, 0, moved);
       return next;
     });
+    onDirty?.();
   }
 
   function handleCreateStep() {
@@ -98,6 +113,7 @@ export function SkuStepsEditor({
       setSteps((prev) => [...prev, { code: result.code!, name, phase: "manufacturing" as StagePhase }]);
       setOrderedCodes((prev) => [...prev, result.code!]);
       setQuery("");
+      onDirty?.();
     });
   }
 
@@ -118,15 +134,13 @@ export function SkuStepsEditor({
   return (
     <div>
       <div className="mb-1.5 flex items-baseline justify-between">
-        <h3 className="font-serif text-lg text-paper">Recette de fabrication</h3>
+        <h3 className="font-serif text-lg text-paper">{title}</h3>
         <span className="text-xs text-paper/60">
           {orderedCodes.length} etape{orderedCodes.length > 1 ? "s" : ""}
           {subcontractedCount > 0 && ` · ${subcontractedCount} sous-traitee${subcontractedCount > 1 ? "s" : ""}`}
         </span>
       </div>
-      <p className="mb-1 text-xs text-paper/60">
-        L&apos;ordre ci-dessous est celui applique a chaque sac qui recoit ce SKU.
-      </p>
+      <p className="mb-1 text-xs text-paper/60">{description}</p>
       <p className="mb-3.5 text-xs text-paper/45">
         Seules les etapes de la phase Fabrication se choisissent ici. Reception, desassemblage, controle qualite,
         emballage, expedition et comptabilite sont fixes pour tous les sacs.
@@ -176,7 +190,7 @@ export function SkuStepsEditor({
                     </span>
                   )}
                 </button>
-                <input type="hidden" name={`step_${code}`} value={notes[code]?.trim() || index + 1} />
+                <input type="hidden" name={`${fieldPrefix}${code}`} value={notes[code]?.trim() || index + 1} />
                 <button
                   type="button"
                   onClick={() => removeFromOrder(code)}
@@ -189,7 +203,10 @@ export function SkuStepsEditor({
                 <div className="px-3.5 pb-3">
                   <Input
                     value={notes[code] ?? ""}
-                    onChange={(e) => setNotes((prev) => ({ ...prev, [code]: e.target.value }))}
+                    onChange={(e) => {
+                      setNotes((prev) => ({ ...prev, [code]: e.target.value }));
+                      onDirty?.();
+                    }}
                     placeholder="Note (ex: motif Popeye babord, sous-traite 3 & 6)"
                     className="w-full text-xs"
                   />
