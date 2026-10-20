@@ -11,6 +11,15 @@ function str(formData: FormData, key: string) {
   return v ? String(v) : null;
 }
 
+// Annee de fabrication d'origine (LV / Hermes) : champ facultatif, annee a
+// 4 chiffres uniquement. Renvoie null si vide, NaN si la saisie est invalide.
+function parseFactoryYear(raw: string | null): number | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  const year = Number(value);
+  return Number.isInteger(year) && year >= 1800 && year <= 2100 ? year : NaN;
+}
+
 export async function createBag(
   formData: FormData
 ): Promise<{
@@ -28,7 +37,7 @@ export async function createBag(
   const supplierId = str(formData, "supplier_id");
   const authNumber = str(formData, "auth_number_supplier");
   const receivedDate = str(formData, "received_date");
-  const factoryDate = str(formData, "factory_date");
+  const factoryYear = parseFactoryYear(str(formData, "factory_year"));
   // Lien optionnel vers le Drive de la societe (alternative/complement a une
   // photo envoyee directement).
   const photosLink = str(formData, "photos_link")?.trim() || null;
@@ -41,19 +50,22 @@ export async function createBag(
   const skuInput = str(formData, "sku")?.trim() || null;
   const saleType = skuInput ? "assemble" : "disassemble";
 
-  // Tous les champs du formulaire de creation sont obligatoires (verification
+  // Tous les champs du formulaire de creation sont obligatoires, sauf le SKU,
+  // la photo, le lien Drive et l'annee de fabrication d'origine (verification
   // cote serveur en complement du bouton grise cote client).
   if (
     !modelId ||
     !supplierId ||
     !authNumber ||
     !receivedDate ||
-    !factoryDate ||
     !invoiceNumber ||
     !sizeVerified ||
     !canvasVerified
   ) {
     return { error: "Merci de renseigner tous les champs" };
+  }
+  if (Number.isNaN(factoryYear)) {
+    return { error: "L'annee de fabrication doit etre une annee a 4 chiffres (ex : 2019)." };
   }
 
   // Le libelle affiche du sac est derive automatiquement du modele choisi
@@ -79,7 +91,7 @@ export async function createBag(
     canvas_verified: canvasVerified,
     supplier_id: supplierId,
     auth_number_supplier: authNumber,
-    factory_date: factoryDate,
+    factory_year: factoryYear,
     // delivery_date (date d'expedition prevue) reste vide : elle vient de la
     // commande rattachee, voir orders/actions.ts.
     received_date: receivedDate,
@@ -121,6 +133,15 @@ export async function createBag(
 export async function updateBag(bagId: string, formData: FormData) {
   const supabase = createClient();
 
+  const factoryYear = parseFactoryYear(str(formData, "factory_year"));
+  if (Number.isNaN(factoryYear)) {
+    redirect(
+      `/bags/${bagId}?view=infos&error=${encodeURIComponent(
+        "L'annee de fabrication doit etre une annee a 4 chiffres (ex : 2019)."
+      )}`
+    );
+  }
+
   const payload = {
     // Le sku n'est plus modifiable ici : voir assignSku() (attribution depuis
     // le catalogue, qui pilote aussi les etapes de fabrication).
@@ -133,7 +154,7 @@ export async function updateBag(bagId: string, formData: FormData) {
     auth_number_supplier: str(formData, "auth_number_supplier"),
     purchase_date: str(formData, "purchase_date"),
     received_date: str(formData, "received_date"),
-    factory_date: str(formData, "factory_date"),
+    factory_year: factoryYear,
     photos_link: str(formData, "photos_link"),
     invoice_number: str(formData, "invoice_number"),
     // purchase_price, sale_type et delivery_date ne sont plus saisis depuis ce

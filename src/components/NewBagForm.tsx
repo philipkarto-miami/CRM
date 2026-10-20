@@ -39,7 +39,6 @@ export function NewBagForm({
   const [supplierId, setSupplierId] = useState("");
   const [authNumber, setAuthNumber] = useState("");
   const [receivedDate, setReceivedDate] = useState("");
-  const [factoryDate, setFactoryDate] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [sizeOk, setSizeOk] = useState(false);
   const [canvasOk, setCanvasOk] = useState(false);
@@ -54,7 +53,6 @@ export function NewBagForm({
     supplierId !== "" &&
     authNumber.trim() !== "" &&
     receivedDate !== "" &&
-    factoryDate !== "" &&
     invoiceNumber.trim() !== "" &&
     sizeOk &&
     canvasOk;
@@ -139,7 +137,8 @@ export function NewBagForm({
   return (
     <form onSubmit={handleSubmit} className="card space-y-6 rounded-sm p-6">
       <p className="text-xs text-paper/40">
-        Tous les champs ci-dessous sont obligatoires (sauf le SKU PK, la photo et le lien Drive).
+        Tous les champs ci-dessous sont obligatoires (sauf le SKU PK, l&apos;année de fabrication,
+        la photo et le lien Drive).
         Le n° de série PK est généré automatiquement. Le SKU PK et les autres informations
         (notes...) pourront être complétés plus tard depuis la fiche du sac.
       </p>
@@ -234,16 +233,19 @@ export function NewBagForm({
         decalait les champs), et la distinction avec la date de reception
         et la fabrication en atelier doit rester evidente.
       */}
-      <FormRow label="Date de fabrication d'origine (LV / Hermès)">
+      <FormRow label="Année de fabrication d'origine (LV / Hermès) — optionnel">
         <Input
-          type="date"
-          name="factory_date"
-          required
-          value={factoryDate}
-          onChange={(e) => setFactoryDate(e.target.value)}
+          type="number"
+          name="factory_year"
+          inputMode="numeric"
+          min={1800}
+          max={2100}
+          step={1}
+          placeholder="ex : 2019"
+          className="sm:w-48"
         />
         <p className="mt-1 text-xs text-paper/40">
-          Date initiale de fabrication du sac par la maison (Louis Vuitton ou Hermès) — pas la date
+          Année initiale de fabrication du sac par la maison (Louis Vuitton ou Hermès) — pas la date
           de réception, ni la fabrication en atelier.
         </p>
       </FormRow>

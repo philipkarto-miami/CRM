@@ -131,7 +131,8 @@ export interface Bag {
   auth_number_supplier: string | null;
   purchase_price: number | null;
   purchase_date: string | null;
-  factory_date: string | null;
+  // Annee de fabrication d'origine chez LV / Hermes (facultatif).
+  factory_year: number | null;
   photos_link: string | null;
   sale_type: SaleType;
   current_phase: StagePhase;

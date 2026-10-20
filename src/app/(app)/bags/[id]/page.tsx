@@ -278,10 +278,20 @@ export default async function BagDetailPage({
               </FormRow>
             </div>
 
-            <FormRow label="Date de fabrication d'origine (LV / Hermes)">
-              <Input type="date" name="factory_date" defaultValue={typedBag.factory_date ?? ""} />
+            <FormRow label="Annee de fabrication d'origine (LV / Hermes) — optionnel">
+              <Input
+                type="number"
+                name="factory_year"
+                inputMode="numeric"
+                min={1800}
+                max={2100}
+                step={1}
+                placeholder="ex : 2019"
+                className="sm:w-48"
+                defaultValue={typedBag.factory_year ?? ""}
+              />
               <p className="mt-1 text-xs text-paper/40">
-                Date initiale de fabrication du sac par la maison (Louis Vuitton ou Hermes) — pas la date
+                Annee initiale de fabrication du sac par la maison (Louis Vuitton ou Hermes) — pas la date
                 de reception, ni la fabrication en atelier.
               </p>
             </FormRow>
