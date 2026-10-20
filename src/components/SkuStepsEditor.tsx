@@ -20,15 +20,20 @@ export function SkuStepsEditor({
 
   // Etapes cochees, dans l'ordre de fabrication (l'ordre de la liste = la
   // sequence). On part de l'ordre existant dans initialSteps (les positions
-  // numeriques triees ; les notes restent a leur place).
+  // numeriques triees ; les notes restent a leur place). Seules les etapes de
+  // fabrication sont gerees ici : les cles d'anciennes recettes qui portaient
+  // sur d'autres phases (devenues fixes) sont ignorees, donc retirees a
+  // l'enregistrement.
   const [orderedCodes, setOrderedCodes] = useState<string[]>(() =>
-    Object.keys(initialSteps).sort((a, b) => {
-      const av = initialSteps[a];
-      const bv = initialSteps[b];
-      const an = typeof av === "number" ? av : Number.isFinite(Number(av)) ? Number(av) : Infinity;
-      const bn = typeof bv === "number" ? bv : Number.isFinite(Number(bv)) ? Number(bv) : Infinity;
-      return an - bn;
-    })
+    Object.keys(initialSteps)
+      .filter((code) => availableSteps.some((s) => s.code === code))
+      .sort((a, b) => {
+        const av = initialSteps[a];
+        const bv = initialSteps[b];
+        const an = typeof av === "number" ? av : Number.isFinite(Number(av)) ? Number(av) : Infinity;
+        const bn = typeof bv === "number" ? bv : Number.isFinite(Number(bv)) ? Number(bv) : Infinity;
+        return an - bn;
+      })
   );
   const [notes, setNotes] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -41,7 +46,6 @@ export function SkuStepsEditor({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  const [newStepPhase, setNewStepPhase] = useState<StagePhase>("manufacturing");
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -81,17 +85,17 @@ export function SkuStepsEditor({
     });
   }
 
-  function handleCreateStep(phase: StagePhase) {
+  function handleCreateStep() {
     const name = query.trim();
     if (!name || isPending) return;
     setError(null);
     startTransition(async () => {
-      const result = await createCustomStep(name, phase);
+      const result = await createCustomStep(name);
       if (result.error || !result.code) {
         setError(result.error ?? "Une erreur est survenue.");
         return;
       }
-      setSteps((prev) => [...prev, { code: result.code!, name, phase }]);
+      setSteps((prev) => [...prev, { code: result.code!, name, phase: "manufacturing" as StagePhase }]);
       setOrderedCodes((prev) => [...prev, result.code!]);
       setQuery("");
     });
@@ -120,8 +124,12 @@ export function SkuStepsEditor({
           {subcontractedCount > 0 && ` · ${subcontractedCount} sous-traitee${subcontractedCount > 1 ? "s" : ""}`}
         </span>
       </div>
-      <p className="mb-3.5 text-xs text-paper/60">
+      <p className="mb-1 text-xs text-paper/60">
         L&apos;ordre ci-dessous est celui applique a chaque sac qui recoit ce SKU.
+      </p>
+      <p className="mb-3.5 text-xs text-paper/45">
+        Seules les etapes de la phase Fabrication se choisissent ici. Reception, desassemblage, controle qualite,
+        emballage, expedition et comptabilite sont fixes pour tous les sacs.
       </p>
 
       {orderedCodes.length === 0 && (
@@ -224,27 +232,17 @@ export function SkuStepsEditor({
               </div>
             ))}
             {!exactMatch && (
-              <div className="flex items-center gap-2 border-t border-line px-3 py-2">
+              <div className="border-t border-line px-3 py-2">
                 <button
                   type="button"
                   disabled={isPending}
-                  onClick={() => handleCreateStep(newStepPhase)}
-                  className="flex-1 text-left text-xs text-gold"
+                  onClick={handleCreateStep}
+                  className="w-full text-left text-xs text-gold"
                 >
-                  {isPending ? "Creation…" : `+ Creer l'etape « ${query.trim()} » (disponible pour tous les SKU)`}
+                  {isPending
+                    ? "Creation…"
+                    : `+ Creer l'etape de fabrication « ${query.trim()} » (disponible pour tous les SKU)`}
                 </button>
-                <select
-                  value={newStepPhase}
-                  onChange={(e) => setNewStepPhase(e.target.value as StagePhase)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="rounded-sm border border-line bg-bone px-1.5 py-1 text-[11px] text-paper/70"
-                >
-                  {PHASE_ORDER.map((phase) => (
-                    <option key={phase} value={phase}>
-                      {PHASE_LABELS[phase]}
-                    </option>
-                  ))}
-                </select>
               </div>
             )}
           </div>

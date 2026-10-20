@@ -83,12 +83,11 @@ export function generateSkuVariants(
 
   const variants: SkuVariant[] = [];
   for (const model of models) {
-    const size = sizeCode(model.baseSize);
-    if (!size) continue;
-    const marker = familyMarker(model.name);
     for (const color of colorChoices) {
+      const sku = buildSkuCode(cleanDesign, model.name, model.baseSize, color?.code ?? null);
+      if (!sku) continue;
       variants.push({
-        sku: `PK${cleanDesign}${marker}${color?.code ?? ""}${size}`,
+        sku,
         modelId: model.id,
         modelLabel: model.label,
         colorCode: color?.code ?? null,
@@ -97,4 +96,91 @@ export function generateSkuVariants(
     }
   }
   return variants;
+}
+
+// Code PK d'une combinaison design + modele + couleur (null si le modele n'a
+// pas de taille exploitable).
+export function buildSkuCode(
+  design: string,
+  modelName: string | null | undefined,
+  baseSize: string | null | undefined,
+  colorCode: string | null
+): string | null {
+  const size = sizeCode(baseSize);
+  if (!design || !size) return null;
+  return `PK${design}${familyMarker(modelName)}${colorCode ?? ""}${size}`;
+}
+
+// ---------------------------------------------------------------------------
+// Fiche d'un design existant : on coche des modeles et des couleurs, et on
+// compare avec les codes deja au catalogue. Meme calcul cote ecran (apercu) et
+// cote serveur (enregistrement).
+// ---------------------------------------------------------------------------
+
+// Valeur de case a cocher pour "sans lettre couleur" (anciens codes).
+export const COLOR_NONE = "NONE";
+
+export type DesignRow = { sku: string; modelId: string | null; colorCode: string | null };
+export type DesignModel = { id: string; name: string; label: string; baseSize: string | null };
+export type DesignCreate = { sku: string; modelId: string; modelLabel: string; colorCode: string | null };
+export type DesignPlan = {
+  keep: DesignRow[];
+  create: DesignCreate[];
+  // Codes qu'on voudrait creer mais qui existent deja ailleurs dans le catalogue.
+  conflicts: { sku: string; modelLabel: string; colorCode: string | null }[];
+  remove: DesignRow[];
+  // Codes de la fiche sans modele rattache : jamais modifies ni supprimes ici.
+  orphans: DesignRow[];
+};
+
+// Un code existant compte pour sa combinaison (modele, couleur), pas pour son
+// libelle : un ancien code (PKNSQPM) n'est donc jamais "recree" au nouveau
+// format (PKNSQNFPM) ni supprime.
+export function planDesignChanges(args: {
+  design: string;
+  rows: DesignRow[];
+  models: DesignModel[];
+  selectedModelIds: string[];
+  selectedColorKeys: string[];
+  allSkus: Set<string>;
+}): DesignPlan {
+  const { design, rows, models, allSkus } = args;
+  const modelById = new Map(models.map((m) => [m.id, m]));
+  const keyOf = (modelId: string, color: string | null) => `${modelId}|${color ?? ""}`;
+
+  const orphans = rows.filter((r) => !r.modelId || !modelById.has(r.modelId));
+  const managed = rows.filter((r) => r.modelId && modelById.has(r.modelId));
+  const existingKeys = new Set(managed.map((r) => keyOf(r.modelId as string, r.colorCode)));
+
+  const colorChoices: (string | null)[] = [];
+  if (args.selectedColorKeys.includes(COLOR_NONE)) colorChoices.push(null);
+  for (const c of SKU_COLORS) if (args.selectedColorKeys.includes(c.code)) colorChoices.push(c.code);
+
+  const desired = new Set<string>();
+  const create: DesignCreate[] = [];
+  const conflicts: DesignPlan["conflicts"] = [];
+  const createdCodes = new Set<string>();
+
+  for (const model of models) {
+    if (!args.selectedModelIds.includes(model.id)) continue;
+    for (const color of colorChoices) {
+      const key = keyOf(model.id, color);
+      desired.add(key);
+      if (existingKeys.has(key)) continue;
+      const sku = buildSkuCode(design, model.name, model.baseSize, color);
+      if (!sku) continue;
+      if (allSkus.has(sku) || createdCodes.has(sku)) {
+        conflicts.push({ sku, modelLabel: model.label, colorCode: color });
+        continue;
+      }
+      createdCodes.add(sku);
+      create.push({ sku, modelId: model.id, modelLabel: model.label, colorCode: color });
+    }
+  }
+
+  const bySku = (a: DesignRow, b: DesignRow) => a.sku.localeCompare(b.sku);
+  const keep = managed.filter((r) => desired.has(keyOf(r.modelId as string, r.colorCode))).sort(bySku);
+  const remove = managed.filter((r) => !desired.has(keyOf(r.modelId as string, r.colorCode))).sort(bySku);
+
+  return { keep, create, conflicts, remove, orphans: [...orphans].sort(bySku) };
 }

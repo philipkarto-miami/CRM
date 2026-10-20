@@ -3,9 +3,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { PaymentStatus, StageStatus } from "@/types/database";
+import type { PaymentStatus, StagePhase, StageStatus } from "@/types/database";
 import { PAYMENT_STATUS_LABELS } from "@/lib/constants";
-import { bandsAllowed } from "@/lib/stages";
+import { bandsAllowed, isFixedStage, phaseRank } from "@/lib/stages";
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
@@ -182,13 +182,14 @@ export async function updateBag(bagId: string, formData: FormData) {
 
 // Attribution d'un SKU depuis le stock : le SKU determine, via le catalogue
 // (table sku_catalog, importee du fichier maitre de l'atelier), quelles
-// etapes de fabrication s'appliquent a ce sac precis et dans quel ordre.
-// On ne touche pas aux etapes "toujours applicables" (reception generale,
-// controle qualite, emballage, expedition, comptabilite...), on ne fait que :
-//   - supprimer les etapes pilotees par le SKU qui ne s'appliquent plus
-//   - creer les etapes pilotees par le SKU qui s'appliquent et n'existent
-//     pas encore (statut initial "a faire")
-//   - mettre a jour l'ordre (sequence_override) / la note de sous-traitance
+// etapes de la phase FABRICATION s'appliquent a ce sac precis et dans quel
+// ordre. Les autres phases sont fixes (reception, desassemblage, controle
+// qualite, emballage, expedition, comptabilite : voir isFixedStage). On :
+//   - supprime les etapes de fabrication pilotees par le SKU qui ne
+//     s'appliquent plus
+//   - cree les etapes de fabrication qui s'appliquent et n'existent pas
+//     encore (statut initial "a faire") ; complete les etapes fixes manquantes
+//   - met a jour l'ordre (sequence_override) / la note de sous-traitance
 //     des etapes deja presentes, sans reinitialiser leur avancement
 export async function assignSku(
   bagId: string,
@@ -227,13 +228,17 @@ export async function assignSku(
   const [{ data: stages }, { data: existingProgress }, { data: bagRow }] = await Promise.all([
     supabase.from("production_stages").select("*").eq("is_active", true),
     supabase.from("bag_stage_progress").select("*").eq("bag_id", bagId),
-    supabase.from("bags").select("model_label, size, bag_models(name, base_size)").eq("id", bagId).maybeSingle(),
+    supabase
+      .from("bags")
+      .select("model_label, size, current_phase, bag_models(name, base_size)")
+      .eq("id", bagId)
+      .maybeSingle(),
   ]);
 
-  // "Ajout des bandes" : uniquement Speedy 35+ et Keepall, meme si la recette
-  // du SKU la prevoit.
+  // "Ajout des bandes" : etape fixe, mais uniquement Speedy 35+ et Keepall.
   const bagModel = Array.isArray(bagRow?.bag_models) ? bagRow?.bag_models[0] : bagRow?.bag_models;
   const bandsOk = bandsAllowed(bagModel?.name ?? bagRow?.model_label, bagModel?.base_size ?? bagRow?.size);
+  const currentRank = phaseRank((bagRow?.current_phase ?? "reception") as StagePhase);
 
   const existingByStage = new Map((existingProgress ?? []).map((p) => [p.stage_id, p]));
 
@@ -244,14 +249,24 @@ export async function assignSku(
   for (const stage of stages ?? []) {
     const existing = existingByStage.get(stage.id);
 
-    // Etape toujours applicable (pas pilotee par le SKU) : on s'assure juste
-    // qu'elle existe. Un sac recu en "pieces detachees, en attente" n'avait
+    // Etape fixe (toutes les phases hors fabrication, + etapes de fabrication
+    // sans colonne catalogue) : appliquee a tous les sacs, la recette du SKU
+    // n'y change rien. Un sac recu en "pieces detachees, en attente" n'avait
     // ete seede qu'avec reception + desassemblage ; attribuer un SKU en fait
     // desormais un produit fini, il faut donc completer le reste du parcours
-    // (controle qualite, emballage, expedition, comptabilite...).
-    if (!stage.catalog_column) {
-      if (!existing) {
-        toInsert.push({ bag_id: bagId, stage_id: stage.id, status: "a_faire" });
+    // (controle qualite, emballage, expedition, comptabilite...). On ne recree
+    // pas d'etape dans une phase deja passee. Seule exception : les bandes,
+    // reservees aux Speedy 35+ et Keepall.
+    if (isFixedStage(stage)) {
+      if (stage.catalog_column === "BANDS" && !bandsOk) {
+        if (existing) toDelete.push(existing.id);
+      } else if (!existing) {
+        if (phaseRank(stage.phase) >= currentRank) {
+          toInsert.push({ bag_id: bagId, stage_id: stage.id, status: "a_faire" });
+        }
+      } else if (existing.sequence_override !== null || existing.subcontract_note !== null) {
+        // Ordre par defaut : on efface une position heritee d'une ancienne recette.
+        toUpdate.push({ id: existing.id, sequence_override: null, subcontract_note: null });
       }
       continue;
     }
@@ -259,13 +274,7 @@ export async function assignSku(
     const raw = steps[stage.catalog_column];
     // 0 est traite exactement comme une case vide : l'etape ne s'applique
     // pas a ce SKU (confirme sur le fichier maitre de l'atelier).
-    const applicable =
-      raw !== undefined &&
-      raw !== null &&
-      raw !== "" &&
-      raw !== 0 &&
-      raw !== "0" &&
-      !(stage.catalog_column === "BANDS" && !bandsOk);
+    const applicable = raw !== undefined && raw !== null && raw !== "" && raw !== 0 && raw !== "0";
 
     if (!applicable) {
       if (existing) toDelete.push(existing.id);

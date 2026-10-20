@@ -3,7 +3,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { generateSkuVariants, isSkuColorCode, normalizeDesign, sizeCode, type SkuModelInput } from "@/lib/sku";
+import {
+  COLOR_NONE,
+  generateSkuVariants,
+  isSkuColorCode,
+  normalizeDesign,
+  planDesignChanges,
+  sizeCode,
+  type DesignModel,
+  type SkuModelInput,
+} from "@/lib/sku";
 import type { StagePhase } from "@/types/database";
 
 function str(formData: FormData, key: string) {
@@ -30,11 +39,12 @@ function readSteps(formData: FormData): Record<string, number | string> {
 
 // Cree une nouvelle etape de fabrication (globale, disponible pour tous les
 // SKU ensuite) depuis l'editeur du catalogue. Reserve aux admins (meme regle
-// que la page Reglages > Etapes de fabrication).
+// que la page Reglages > Etapes de fabrication). Seule la phase Fabrication
+// est choisissable par SKU : les autres phases sont fixes.
 export async function createCustomStep(
-  name: string,
-  phase: StagePhase
+  name: string
 ): Promise<{ error?: string; code?: string; id?: string }> {
+  const phase: StagePhase = "manufacturing";
   const supabase = createClient();
   const cleanName = name.trim();
   if (!cleanName) return { error: "Le nom de l'etape est obligatoire" };
@@ -179,6 +189,9 @@ export async function createSkuCatalogBatch(formData: FormData): Promise<void> {
   const { error } = await supabase.from("sku_catalog").insert(
     toCreate.map((v) => ({
       sku: v.sku,
+      // Cle de regroupement en fiche + couleur : voir migration 0029.
+      design,
+      color_code: v.colorCode,
       edition,
       description,
       // Un code PK transforme toujours un seul modele fournisseur precis :
@@ -196,6 +209,117 @@ export async function createSkuCatalogBatch(formData: FormData): Promise<void> {
 
   revalidatePath("/catalogue");
   redirect(`/catalogue?q=${encodeURIComponent(`PK${design}`)}&saved=${encodeURIComponent(message)}`);
+}
+
+// Fiche d'un design existant : on coche des modeles et des couleurs, et on
+// aligne le catalogue dessus. Les combinaisons (modele x couleur) manquantes
+// sont creees (edition, description et recette recopiees d'un code existant du
+// design) ; celles qu'on decoche sont supprimees, sauf si un sac utilise deja
+// le code. Les codes sans modele rattache ne sont jamais touches.
+export async function saveSkuDesign(formData: FormData): Promise<void> {
+  const supabase = createClient();
+  const design = String(formData.get("design") ?? "");
+  if (!design) redirect("/catalogue");
+
+  const ficheUrl = `/catalogue/design/${encodeURIComponent(design)}`;
+  function fail(message: string): never {
+    redirect(`${ficheUrl}?error=${encodeURIComponent(message)}`);
+  }
+
+  const modelIds = formData.getAll("model_ids").map(String).filter(Boolean);
+  const colorKeys = formData
+    .getAll("colors")
+    .map(String)
+    .filter((c) => c === COLOR_NONE || isSkuColorCode(c));
+  if (modelIds.length === 0) fail("Coche au moins un modele de sac.");
+  if (colorKeys.length === 0) fail("Coche au moins une couleur (ou « Sans couleur »).");
+
+  const [{ data: rowData }, { data: modelRows }] = await Promise.all([
+    supabase.from("sku_catalog").select("*").eq("design", design).order("sku"),
+    supabase.from("bag_models").select("id, name, base_size, sort_order, brands(name)"),
+  ]);
+  const rows = rowData ?? [];
+  if (rows.length === 0) redirect("/catalogue");
+
+  const models: DesignModel[] = (modelRows ?? [])
+    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
+    .map((m) => {
+      const brand = Array.isArray(m.brands) ? m.brands[0] : m.brands;
+      return {
+        id: m.id as string,
+        name: m.name as string,
+        label: [brand?.name, m.name, m.base_size].filter(Boolean).join(" "),
+        baseSize: m.base_size as string | null,
+      };
+    });
+
+  const designRows = rows.map((r) => ({
+    sku: r.sku as string,
+    modelId: (r.bag_model_id ?? null) as string | null,
+    colorCode: (r.color_code ?? null) as string | null,
+  }));
+  const planArgs = { design, rows: designRows, models, selectedModelIds: modelIds, selectedColorKeys: colorKeys };
+
+  // Premier passage pour connaitre les codes a creer, puis on verifie lesquels
+  // existent deja ailleurs dans le catalogue (autre design) pour ne rien ecraser.
+  const firstPass = planDesignChanges({ ...planArgs, allSkus: new Set() });
+  let taken = new Set<string>();
+  if (firstPass.create.length > 0) {
+    const { data } = await supabase
+      .from("sku_catalog")
+      .select("sku")
+      .in(
+        "sku",
+        firstPass.create.map((c) => c.sku)
+      );
+    taken = new Set((data ?? []).map((r) => r.sku as string));
+  }
+  const plan = planDesignChanges({ ...planArgs, allSkus: taken });
+
+  const reference = rows[0];
+  if (plan.create.length > 0) {
+    const { error } = await supabase.from("sku_catalog").insert(
+      plan.create.map((c) => ({
+        sku: c.sku,
+        design,
+        color_code: c.colorCode,
+        edition: reference.edition ?? null,
+        description: reference.description ?? null,
+        bag_model_id: c.modelId,
+        steps: reference.steps ?? {},
+      }))
+    );
+    if (error) fail(error.message);
+  }
+
+  let removed = 0;
+  let blocked = 0;
+  if (plan.remove.length > 0) {
+    const codes = plan.remove.map((r) => r.sku);
+    const { data: used } = await supabase.from("bags").select("sku").in("sku", codes);
+    const inUse = new Set((used ?? []).map((b) => b.sku as string));
+    const deletable = codes.filter((c) => !inUse.has(c));
+    blocked = codes.length - deletable.length;
+    if (deletable.length > 0) {
+      const { error } = await supabase.from("sku_catalog").delete().in("sku", deletable);
+      if (error) fail(error.message);
+      removed = deletable.length;
+    }
+  }
+
+  const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
+  const parts: string[] = [];
+  if (plan.create.length > 0) parts.push(plural(plan.create.length, "code cree", "codes crees"));
+  if (removed > 0) parts.push(plural(removed, "code supprime", "codes supprimes"));
+  if (blocked > 0) parts.push(plural(blocked, "code garde (utilise par des sacs)", "codes gardes (utilises par des sacs)"));
+  if (plan.conflicts.length > 0) {
+    parts.push(plural(plan.conflicts.length, "code deja existant ailleurs ignore", "codes deja existants ailleurs ignores"));
+  }
+  const message = parts.length > 0 ? parts.join(" · ") : "Aucun changement";
+
+  revalidatePath("/catalogue");
+  revalidatePath(ficheUrl);
+  redirect(`${ficheUrl}?saved=${encodeURIComponent(message)}`);
 }
 
 export async function updateSkuCatalogEntry(sku: string, formData: FormData) {

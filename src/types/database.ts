@@ -103,6 +103,11 @@ export type SkuCatalogSteps = Record<string, number | string>;
 export interface SkuCatalog {
   id: string;
   sku: string;
+  // Cle de regroupement en fiche : le code sans "PK" ni taille (PKSBLK30 -> SBLK).
+  design: string | null;
+  // Lettre(s) couleur quand elle est connue (codes crees depuis "Nouveau
+  // design") ; vide pour les anciens codes dont la couleur fait partie du design.
+  color_code: string | null;
   edition: string | null;
   description: string | null;
   photo_path: string | null;

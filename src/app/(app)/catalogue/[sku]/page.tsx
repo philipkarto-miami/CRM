@@ -9,6 +9,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
 import { SavedToast } from "@/components/SavedToast";
 import { toRecipeSteps } from "@/lib/stages";
+import { deriveDesign } from "@/lib/catalogue";
 import type { BagModel, SkuCatalog } from "@/types/database";
 
 export default async function SkuCatalogDetailPage({ params }: { params: { sku: string } }) {
@@ -47,7 +48,19 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
     <form action={updateWithSku} className="pb-20">
       <SavedToast />
       <p className="text-xs uppercase tracking-widest2 text-gold">
-        <span className="text-paper/45">Catalogue /</span> {typedEntry.sku}
+        <Link href="/catalogue" className="text-paper/45 hover:text-gold">
+          Catalogue
+        </Link>
+        <span className="text-paper/45"> / </span>
+        <Link
+          href={`/catalogue/design/${encodeURIComponent(typedEntry.design ?? deriveDesign(typedEntry.sku))}`}
+          className="text-paper/45 hover:text-gold"
+          title="Gérer les modèles et couleurs de ce design"
+        >
+          PK{typedEntry.design ?? deriveDesign(typedEntry.sku)}
+        </Link>
+        <span className="text-paper/45"> / </span>
+        {typedEntry.sku}
       </p>
       <div className="mt-0.5 flex items-baseline gap-3">
         <h2 className="font-serif text-2xl text-paper">{typedEntry.sku}</h2>

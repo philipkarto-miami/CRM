@@ -44,23 +44,41 @@ export function bandsAllowed(modelName: string | null | undefined, baseSize: str
   return false;
 }
 
+// Etape "fixe" = appliquee d'office a tous les sacs, sans passer par la recette
+// du SKU : toutes les etapes des phases autres que la fabrication, ainsi que
+// les etapes de fabrication sans colonne de catalogue (ex. "Demarrage
+// fabrication"). Seule exception : "Ajout des bandes" (colonne BANDS), fixe
+// mais reservee aux Speedy 35+ et Keepall (voir bandsAllowed).
+export function isFixedStage(stage: { phase: StagePhase; catalog_column: string | null }): boolean {
+  return stage.phase !== "manufacturing" || !stage.catalog_column;
+}
+
+// Rang d'une phase dans le parcours d'un sac ("stock propre" = entre le
+// desassemblage et la fabrication). Sert a ne pas recreer d'etapes dans une
+// phase deja passee.
+const PHASE_RANK: Record<StagePhase, number> = {
+  reception: 0,
+  disassembly: 1,
+  stock_propre: 2,
+  manufacturing: 3,
+  quality_control: 4,
+  wrapping: 5,
+  shipping: 6,
+  accounting: 7,
+};
+
+export function phaseRank(phase: StagePhase): number {
+  return PHASE_RANK[phase] ?? 99;
+}
+
 export type RecipeStepOption = { code: string; name: string; phase: StagePhase };
 
-// Etapes proposees dans l'editeur de recette d'un SKU : une entree par colonne
-// de catalogue. Les etapes qui partagent une colonne (les 4 etapes de
-// desassemblage) sont regroupees en une seule ligne de recette.
-// `stages` doit arriver trie par phase puis order_index.
+// Etapes proposees dans l'editeur de recette d'un SKU : uniquement celles de la
+// phase Fabrication. Les autres phases sont fixes (voir isFixedStage).
 export function toRecipeSteps(
   stages: { name: string; catalog_column: string | null; phase: StagePhase }[]
 ): RecipeStepOption[] {
-  const byCode = new Map<string, RecipeStepOption>();
-  for (const s of stages) {
-    if (!s.catalog_column) continue;
-    const existing = byCode.get(s.catalog_column);
-    if (existing) existing.name = `${existing.name} - ${s.name}`;
-    else byCode.set(s.catalog_column, { code: s.catalog_column, name: s.name, phase: s.phase });
-  }
-  return [...byCode.values()].map((s) =>
-    s.code === "BANDS" ? { ...s, name: `${s.name} (Speedy 35+ / Keepall)` } : s
-  );
+  return stages
+    .filter((s) => s.catalog_column && s.phase === "manufacturing")
+    .map((s) => ({ code: s.catalog_column as string, name: s.name, phase: s.phase }));
 }

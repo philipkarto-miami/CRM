@@ -284,7 +284,7 @@ export function NewSkuBatchForm({
           </div>
           <p className="mt-3 text-xs text-paper/55">
             Cette recette s&apos;applique à tous les codes créés. Elle reste modifiable code par code ensuite. Les
-            bandes ne sont posées que sur les Speedy 35+ et les Keepall, même si la recette les prévoit.
+            autres phases sont fixes ; les bandes sont posées d&apos;office sur les Speedy 35+ et les Keepall.
           </p>
         </div>
       </div>
