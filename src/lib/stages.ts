@@ -64,6 +64,12 @@ export function fixedStageApplies(
   return true;
 }
 
+// Etapes dont la presence depend du modele : elles doivent exister sur tout sac
+// concerne, meme s'il a deja depasse leur phase (tant qu'il n'est pas expedie).
+export function isModelDependentStage(catalogColumn: string | null | undefined): boolean {
+  return catalogColumn === "BANDS" || catalogColumn === "EMBROIDERY_SIDE";
+}
+
 // Etape "fixe" = appliquee d'office a tous les sacs, sans passer par la recette
 // du SKU : toutes les etapes des phases autres que la fabrication, ainsi que
 // les etapes de fabrication sans colonne de catalogue (ex. "Demarrage

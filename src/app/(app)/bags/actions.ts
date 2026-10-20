@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { PaymentStatus, SkuCatalog, StagePhase, StageStatus } from "@/types/database";
 import { PAYMENT_STATUS_LABELS } from "@/lib/constants";
-import { fixedStageApplies, isFixedStage, phaseRank } from "@/lib/stages";
+import { fixedStageApplies, isFixedStage, isModelDependentStage, phaseRank } from "@/lib/stages";
 import { skuFitsBag, type FitBag, type FitModel } from "@/lib/sku";
 
 function str(formData: FormData, key: string) {
@@ -335,7 +335,12 @@ export async function assignSku(
       if (!fixedStageApplies(stage.catalog_column, ruleName, ruleSize)) {
         if (existing && existing.status === "a_faire") toDelete.push(existing.id);
       } else if (!existing) {
-        if (phaseRank(stage.phase) >= currentRank) {
+        // Une etape qui depend du modele (bandes, broderie cote) est ajoutee
+        // meme si le sac a deja depasse sa phase, tant qu'il n'est pas expedie.
+        const insertable =
+          phaseRank(stage.phase) >= currentRank ||
+          (isModelDependentStage(stage.catalog_column) && currentRank < phaseRank("shipping"));
+        if (insertable) {
           toInsert.push({ bag_id: bagId, stage_id: stage.id, status: "a_faire" });
         }
       } else if (existing.sequence_override !== null || existing.subcontract_note !== null) {
