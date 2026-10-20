@@ -277,6 +277,77 @@ export function SkuDesignForm({
 
           <div className="space-y-6">
             <div className="card rounded-sm p-5">
+              <h3 className="mb-1 font-serif text-[17px] text-paper">Recette de fabrication</h3>
+              <p className="mb-3.5 text-xs text-paper/55">
+                Une recette par couleur, commune à tous les modèles et toutes les tailles du design : seule la couleur
+                change le travail. Elle s&apos;applique à chaque code de la couleur et aux sacs qui reçoivent ensuite ce
+                code.
+              </p>
+
+              {photoSlots.length === 0 ? (
+                <p className="text-sm text-paper/45">Coche une couleur pour régler sa recette.</p>
+              ) : (
+                <>
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {photoSlots.map((slot) => (
+                      <button
+                        key={slot.key}
+                        type="button"
+                        onClick={() => setActiveColor(slot.key)}
+                        className={cn(chipBase, slot.key === activeKey ? chipOn : chipOff)}
+                      >
+                        {slot.swatch && (
+                          <span
+                            aria-hidden="true"
+                            className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10"
+                            style={{ background: slot.swatch }}
+                          />
+                        )}
+                        {slot.label}
+                        {recipeTouched.has(slot.key) && <span className="text-[11px] text-gold">● modifiée</span>}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Tous les editeurs restent montes (seul l'actif est visible) pour que
+                      chaque recette modifiee soit envoyee avec le formulaire. */}
+                  {photoSlots.map((slot) => (
+                    <div key={slot.key} className={slot.key === activeKey ? "" : "hidden"}>
+                      {divergent.has(slot.key) && (
+                        <div className="mb-3 rounded-sm border border-line bg-gold/5 px-3.5 py-2.5 text-xs text-paper/70">
+                          Les codes de cette couleur n&apos;ont pas tous la même recette (ancien fonctionnement). Celle-ci
+                          est la plus courante.{" "}
+                          {recipeTouched.has(slot.key) ? (
+                            <span className="text-gold">Elle sera appliquée à tous à l&apos;enregistrement.</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => markRecipe(slot.key)}
+                              className="text-gold underline underline-offset-2"
+                            >
+                              L&apos;appliquer à tous les codes
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      <SkuStepsEditor
+                        fieldPrefix={`recipe__${slot.key}__`}
+                        title={`Recette — ${slot.label}`}
+                        description="L'ordre ci-dessous est celui appliqué à chaque sac de cette couleur."
+                        availableSteps={stepOptions}
+                        initialSteps={recipes[slot.key] ?? referenceRecipe}
+                        onDirty={() => markRecipe(slot.key)}
+                      />
+                      {recipeTouched.has(slot.key) && (
+                        <input type="hidden" name={`recipe_touched__${slot.key}`} value="1" />
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+
+            <div className="card rounded-sm p-5">
               <div className="mb-3 flex items-baseline justify-between">
                 <h3 className="font-serif text-[17px] text-paper">Codes PK de ce design</h3>
                 <span className="text-xs text-paper/60">
@@ -376,77 +447,6 @@ export function SkuDesignForm({
               )}
             </div>
           </div>
-        </div>
-
-        <div className="card mt-6 rounded-sm p-5">
-          <h3 className="mb-1 font-serif text-[17px] text-paper">Recette de fabrication</h3>
-          <p className="mb-3.5 text-xs text-paper/55">
-            Une recette par couleur, commune à tous les modèles et toutes les tailles du design : seule la couleur
-            change le travail. Elle s&apos;applique à chaque code de la couleur et aux sacs qui reçoivent ensuite ce
-            code.
-          </p>
-
-          {photoSlots.length === 0 ? (
-            <p className="text-sm text-paper/45">Coche une couleur pour régler sa recette.</p>
-          ) : (
-            <>
-              <div className="mb-4 flex flex-wrap gap-2">
-                {photoSlots.map((slot) => (
-                  <button
-                    key={slot.key}
-                    type="button"
-                    onClick={() => setActiveColor(slot.key)}
-                    className={cn(chipBase, slot.key === activeKey ? chipOn : chipOff)}
-                  >
-                    {slot.swatch && (
-                      <span
-                        aria-hidden="true"
-                        className="h-3.5 w-3.5 shrink-0 rounded-full border border-black/10"
-                        style={{ background: slot.swatch }}
-                      />
-                    )}
-                    {slot.label}
-                    {recipeTouched.has(slot.key) && <span className="text-[11px] text-gold">● modifiée</span>}
-                  </button>
-                ))}
-              </div>
-
-              {/* Tous les editeurs restent montes (seul l'actif est visible) pour que
-                  chaque recette modifiee soit envoyee avec le formulaire. */}
-              {photoSlots.map((slot) => (
-                <div key={slot.key} className={slot.key === activeKey ? "max-w-2xl" : "hidden"}>
-                  {divergent.has(slot.key) && (
-                    <div className="mb-3 rounded-sm border border-line bg-gold/5 px-3.5 py-2.5 text-xs text-paper/70">
-                      Les codes de cette couleur n&apos;ont pas tous la même recette (ancien fonctionnement). Celle-ci
-                      est la plus courante.{" "}
-                      {recipeTouched.has(slot.key) ? (
-                        <span className="text-gold">Elle sera appliquée à tous à l&apos;enregistrement.</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => markRecipe(slot.key)}
-                          className="text-gold underline underline-offset-2"
-                        >
-                          L&apos;appliquer à tous les codes
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  <SkuStepsEditor
-                    fieldPrefix={`recipe__${slot.key}__`}
-                    title={`Recette — ${slot.label}`}
-                    description="L'ordre ci-dessous est celui appliqué à chaque sac de cette couleur."
-                    availableSteps={stepOptions}
-                    initialSteps={recipes[slot.key] ?? referenceRecipe}
-                    onDirty={() => markRecipe(slot.key)}
-                  />
-                  {recipeTouched.has(slot.key) && (
-                    <input type="hidden" name={`recipe_touched__${slot.key}`} value="1" />
-                  )}
-                </div>
-              ))}
-            </>
-          )}
         </div>
 
         <div className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-between border-t border-line bg-bone px-4 py-3.5 md:left-64 md:px-8">
