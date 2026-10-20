@@ -13,6 +13,8 @@ import { PhotoGallery } from "@/components/PhotoGallery";
 import { AssignSkuForm } from "@/components/AssignSkuForm";
 import { SavedToast } from "@/components/SavedToast";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
+import { fetchAllRows } from "@/lib/catalogue";
+import { describeBag, skuFitsBag, type FitBag, type FitModel } from "@/lib/sku";
 import { cn } from "@/lib/utils";
 import type { Bag, BagPhoto, BagStageProgress, ProductionStage, SkuCatalog, StagePhase, Supplier } from "@/types/database";
 
@@ -51,7 +53,7 @@ export default async function BagDetailPage({
 }) {
   const supabase = createClient();
 
-  const [{ data: bag }, { data: suppliers }, { data: progress }, { data: photoRows }, { data: skuOptions }] =
+  const [{ data: bag }, { data: suppliers }, { data: progress }, { data: photoRows }, catalogCodes, { data: modelRows }] =
     await Promise.all([
       supabase.from("bags").select("*").eq("id", params.id).single(),
       supabase.from("suppliers").select("*").order("name"),
@@ -64,12 +66,41 @@ export default async function BagDetailPage({
         .select("*")
         .eq("bag_id", params.id)
         .order("created_at", { ascending: false }),
-      supabase.from("sku_catalog").select("sku, edition").order("sku"),
+      // Tout le catalogue, par pages (l'API plafonne a 1000 lignes par requete).
+      fetchAllRows<{ sku: string; edition: string | null; bag_model_id: string | null }>((from, to) =>
+        supabase.from("sku_catalog").select("sku, edition, bag_model_id").order("sku").range(from, to)
+      ),
+      supabase.from("bag_models").select("id, name, base_size"),
     ]);
 
   if (!bag) notFound();
 
   const typedBag = bag as Bag;
+
+  // Un code PK ne s'attribue qu'a un sac du meme modele / de la meme taille :
+  // on ne propose que les codes compatibles avec ce sac.
+  const fitModels = new Map<string, FitModel>(
+    (modelRows ?? []).map((m) => [
+      m.id as string,
+      { id: m.id as string, name: m.name as string, baseSize: (m.base_size as string | null) ?? null },
+    ])
+  );
+  const fitBag: FitBag = { modelId: typedBag.model_id, modelLabel: typedBag.model_label, size: typedBag.size };
+  const skuOptions = catalogCodes.rows
+    .filter((c) => skuFitsBag(fitBag, { sku: c.sku, bagModelId: c.bag_model_id }, fitModels).ok)
+    .map((c) => ({ sku: c.sku, edition: c.edition }));
+  const bagLabel = describeBag(fitBag, fitModels).label;
+
+  // Le code deja pose sur le sac est-il compatible ? (heritage : un sac a pu
+  // recevoir un code d'une autre taille avant cette regle.)
+  const currentEntry = typedBag.sku ? catalogCodes.rows.find((c) => c.sku === typedBag.sku) : undefined;
+  const currentFit = currentEntry
+    ? skuFitsBag(fitBag, { sku: currentEntry.sku, bagModelId: currentEntry.bag_model_id }, fitModels)
+    : null;
+  const currentSkuWarning =
+    currentFit && !currentFit.ok
+      ? `Ce code correspond a ${currentFit.entryLabel}, mais ce sac est un ${currentFit.bagLabel}. Attribue le bon code.`
+      : null;
 
   // Photo(s) du modele PK (catalogue) attribue a ce sac : sert de reference
   // visuelle a l'atelier pour confirmer qu'il fabrique le bon modele.
@@ -332,7 +363,9 @@ export default async function BagDetailPage({
             bagId={typedBag.id}
             currentSku={typedBag.sku}
             currentEdition={typedBag.sku_edition}
-            skuOptions={(skuOptions as { sku: string; edition: string | null }[] | null) ?? []}
+            currentWarning={currentSkuWarning}
+            bagLabel={bagLabel}
+            skuOptions={skuOptions}
           />
         </Card>
 

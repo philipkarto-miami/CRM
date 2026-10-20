@@ -184,3 +184,64 @@ export function planDesignChanges(args: {
 
   return { keep, create, conflicts, remove, orphans: [...orphans].sort(bySku) };
 }
+
+// ---------------------------------------------------------------------------
+// Compatibilite code PK <-> sac : un code ne s'attribue qu'a un sac du bon
+// modele et de la bonne taille (ex : un code en 30 ne va pas sur un Speedy 35).
+// Comparaison sur la taille (25..55, PM, MM, GM) et la famille (Speedy, Keepall,
+// Neverfull, Birkin) quand elles sont connues ; si une information manque
+// (anciens codes sans modele, sac sans taille), on ne bloque pas.
+// ---------------------------------------------------------------------------
+
+export type FitModel = { id: string; name: string; baseSize: string | null };
+export type FitBag = { modelId: string | null; modelLabel: string | null; size: string | null };
+export type FitEntry = { sku: string; bagModelId: string | null };
+
+const FIT_FAMILIES = ["speedy", "keepall", "neverfull", "birkin"];
+
+function familyOf(text: string | null | undefined): string | null {
+  const t = (text ?? "").toLowerCase();
+  return FIT_FAMILIES.find((f) => t.includes(f)) ?? null;
+}
+
+// Taille dans un texte libre ("Louis Vuitton Speedy 35", "30 cm") : la derniere.
+function sizeFromText(text: string | null | undefined): string | null {
+  const found = (text ?? "").match(/\b(?:\d{2}|PM|MM|GM)\b/gi);
+  return found && found.length > 0 ? found[found.length - 1].toUpperCase() : null;
+}
+
+// Taille en fin de code PK (PKSBLK30 -> 30, PKNSQPM -> PM).
+function sizeFromCode(sku: string): string | null {
+  const m = /(\d+|PM|MM|GM)$/i.exec(sku.trim());
+  return m ? m[1].toUpperCase() : null;
+}
+
+export function describeBag(bag: FitBag, models: Map<string, FitModel>) {
+  const model = bag.modelId ? models.get(bag.modelId) : undefined;
+  const family = familyOf(model?.name) ?? familyOf(bag.modelLabel);
+  const size = model?.baseSize?.trim().toUpperCase() || sizeFromText(bag.size) || sizeFromText(bag.modelLabel);
+  const label = model
+    ? [model.name, model.baseSize].filter(Boolean).join(" ")
+    : bag.modelLabel?.trim() || (size ? `taille ${size}` : "ce sac");
+  return { family, size, label };
+}
+
+export function describeEntry(entry: FitEntry, models: Map<string, FitModel>) {
+  const model = entry.bagModelId ? models.get(entry.bagModelId) : undefined;
+  const family = familyOf(model?.name);
+  const size = model?.baseSize?.trim().toUpperCase() || sizeFromCode(entry.sku);
+  const label = model ? [model.name, model.baseSize].filter(Boolean).join(" ") : size ? `taille ${size}` : entry.sku;
+  return { family, size, label };
+}
+
+export function skuFitsBag(
+  bag: FitBag,
+  entry: FitEntry,
+  models: Map<string, FitModel>
+): { ok: boolean; bagLabel: string; entryLabel: string } {
+  const b = describeBag(bag, models);
+  const e = describeEntry(entry, models);
+  const sizeClash = Boolean(b.size && e.size && b.size !== e.size);
+  const familyClash = Boolean(b.family && e.family && b.family !== e.family);
+  return { ok: !sizeClash && !familyClash, bagLabel: b.label, entryLabel: e.label };
+}

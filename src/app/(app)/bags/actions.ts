@@ -3,9 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { PaymentStatus, StagePhase, StageStatus } from "@/types/database";
+import type { PaymentStatus, SkuCatalog, StagePhase, StageStatus } from "@/types/database";
 import { PAYMENT_STATUS_LABELS } from "@/lib/constants";
 import { bandsAllowed, isFixedStage, phaseRank } from "@/lib/stages";
+import { skuFitsBag, type FitBag, type FitModel } from "@/lib/sku";
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
@@ -191,24 +192,92 @@ export async function updateBag(bagId: string, formData: FormData) {
 //     encore (statut initial "a faire") ; complete les etapes fixes manquantes
 //   - met a jour l'ordre (sequence_override) / la note de sous-traitance
 //     des etapes deja presentes, sans reinitialiser leur avancement
+// Trouve le code a attribuer a partir de la saisie :
+//   1. un code exact (PKSBLK35) ;
+//   2. sinon un design (PKS) ou un debut de code : on garde, parmi ses codes,
+//      ceux qui correspondent au modele et a la taille du sac. Un seul = c'est
+//      lui qui est attribue ; plusieurs (couleurs) = on demande de preciser.
+// Un code d'un autre modele ou d'une autre taille que le sac est refuse.
+async function resolveCatalogEntry(
+  supabase: ReturnType<typeof createClient>,
+  input: string,
+  bag: FitBag,
+  models: Map<string, FitModel>
+): Promise<{ entry?: SkuCatalog; error?: string }> {
+  const fits = (c: SkuCatalog) => skuFitsBag(bag, { sku: c.sku, bagModelId: c.bag_model_id }, models);
+
+  const exact = await supabase.from("sku_catalog").select("*").ilike("sku", input).maybeSingle();
+  if (exact.error) return { error: exact.error.message };
+  if (exact.data) {
+    const entry = exact.data as SkuCatalog;
+    const fit = fits(entry);
+    if (!fit.ok) {
+      return {
+        error: `Le code ${entry.sku} correspond a ${fit.entryLabel}, mais ce sac est un ${fit.bagLabel}. Choisis un code de la bonne taille.`,
+      };
+    }
+    return { entry };
+  }
+
+  const normalized = input.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!normalized) return { error: `SKU "${input}" introuvable dans le catalogue.` };
+  const designKey = normalized.startsWith("PK") ? normalized.slice(2) : normalized;
+
+  let candidates: SkuCatalog[] = [];
+  if (designKey) {
+    const { data, error } = await supabase.from("sku_catalog").select("*").eq("design", designKey).limit(300);
+    if (!error) candidates = (data ?? []) as SkuCatalog[];
+  }
+  if (candidates.length === 0) {
+    const { data } = await supabase.from("sku_catalog").select("*").ilike("sku", `${normalized}%`).limit(300);
+    candidates = (data ?? []) as SkuCatalog[];
+  }
+  if (candidates.length === 0) return { error: `SKU "${input}" introuvable dans le catalogue.` };
+
+  const fitting = candidates.filter((c) => fits(c).ok);
+  if (fitting.length === 0) {
+    return { error: `Aucun code « ${input} » ne correspond a ce sac (${fits(candidates[0]).bagLabel}).` };
+  }
+  if (fitting.length === 1) return { entry: fitting[0] };
+
+  const list = fitting
+    .slice(0, 6)
+    .map((c) => c.sku)
+    .join(", ");
+  return {
+    error: `« ${input} » correspond a ${fitting.length} codes pour ce sac : ${list}${fitting.length > 6 ? "…" : ""}. Precise le code (couleur).`,
+  };
+}
+
 export async function assignSku(
   bagId: string,
   sku: string
-): Promise<{ error?: string }> {
+): Promise<{ error?: string; sku?: string }> {
   const supabase = createClient();
   const cleanSku = sku.trim();
   if (!cleanSku) return { error: "SKU vide" };
 
-  const { data: catalogEntry, error: catalogError } = await supabase
-    .from("sku_catalog")
-    .select("*")
-    .ilike("sku", cleanSku)
-    .maybeSingle();
+  const [{ data: bagIdentity }, { data: modelRows }] = await Promise.all([
+    supabase.from("bags").select("model_id, model_label, size").eq("id", bagId).maybeSingle(),
+    supabase.from("bag_models").select("id, name, base_size"),
+  ]);
+  const models = new Map<string, FitModel>(
+    (modelRows ?? []).map((m) => [
+      m.id as string,
+      { id: m.id as string, name: m.name as string, baseSize: (m.base_size as string | null) ?? null },
+    ])
+  );
+  const fitBag: FitBag = {
+    modelId: (bagIdentity?.model_id as string | null) ?? null,
+    modelLabel: (bagIdentity?.model_label as string | null) ?? null,
+    size: (bagIdentity?.size as string | null) ?? null,
+  };
 
-  if (catalogError) return { error: catalogError.message };
-  if (!catalogEntry) {
-    return { error: `SKU "${cleanSku}" introuvable dans le catalogue.` };
+  const resolved = await resolveCatalogEntry(supabase, cleanSku, fitBag, models);
+  if (resolved.error || !resolved.entry) {
+    return { error: resolved.error ?? `SKU "${cleanSku}" introuvable dans le catalogue.` };
   }
+  const catalogEntry = resolved.entry;
 
   const steps = (catalogEntry.steps ?? {}) as Record<string, number | string>;
 
@@ -323,7 +392,7 @@ export async function assignSku(
   revalidatePath(`/bags/${bagId}`);
   revalidatePath("/bags");
   revalidatePath("/production");
-  return {};
+  return { sku: catalogEntry.sku };
 }
 
 export async function updateStageProgress(
