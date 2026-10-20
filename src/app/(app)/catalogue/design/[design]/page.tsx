@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SkuDesignForm } from "@/components/SkuDesignForm";
 import { SavedToast } from "@/components/SavedToast";
 import { MIGRATION_0029_MESSAGE, deriveDesign, fetchAllRows } from "@/lib/catalogue";
-import { COLOR_NONE, type DesignRow } from "@/lib/sku";
+import { COLOR_NONE, photoGroupOf, type DesignRow } from "@/lib/sku";
 import { toRecipeSteps } from "@/lib/stages";
 
 type CatalogRow = {
@@ -85,13 +85,19 @@ export default async function SkuDesignPage({
     colorCode: r.color_code,
   }));
 
-  // Photos : une paire recto/verso par couleur (la premiere trouvee dans le
-  // groupe de couleur ; l'enregistrement les applique a tous les codes).
-  const photoPathsByColor = new Map<string, { front: string | null; back: string | null }>();
+  // Photos : une paire recto/verso par (couleur x groupe de modeles), cle
+  // "<couleur>__<groupe>" (la premiere trouvee ; l'enregistrement l'applique a
+  // tous les codes du groupe et de la couleur). Les codes sans modele rattache
+  // n'entrent dans aucun groupe.
+  const modelById = new Map((models ?? []).map((m) => [m.id as string, m]));
+  const photoPathsBySlot = new Map<string, { front: string | null; back: string | null }>();
   for (const r of designCodes) {
-    const key = r.color_code ?? COLOR_NONE;
-    const current = photoPathsByColor.get(key) ?? { front: null, back: null };
-    photoPathsByColor.set(key, {
+    const model = r.bag_model_id ? modelById.get(r.bag_model_id) : undefined;
+    const group = model ? photoGroupOf(model.name as string, model.base_size as string | null) : null;
+    if (!group) continue;
+    const key = `${r.color_code ?? COLOR_NONE}__${group}`;
+    const current = photoPathsBySlot.get(key) ?? { front: null, back: null };
+    photoPathsBySlot.set(key, {
       front: current.front ?? r.photo_path,
       back: current.back ?? r.photo_path_back,
     });
@@ -99,7 +105,7 @@ export default async function SkuDesignPage({
 
   const signed = new Map<string, string>();
   const paths = new Set<string>();
-  for (const p of photoPathsByColor.values()) {
+  for (const p of photoPathsBySlot.values()) {
     if (p.front) paths.add(p.front);
     if (p.back) paths.add(p.back);
   }
@@ -111,7 +117,7 @@ export default async function SkuDesignPage({
   }
 
   const photos: Record<string, { front: string | null; back: string | null }> = {};
-  for (const [key, p] of photoPathsByColor) {
+  for (const [key, p] of photoPathsBySlot) {
     photos[key] = {
       front: p.front ? signed.get(p.front) ?? null : null,
       back: p.back ? signed.get(p.back) ?? null : null,

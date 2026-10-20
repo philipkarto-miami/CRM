@@ -6,7 +6,14 @@ import { saveSkuDesign } from "@/app/(app)/catalogue/actions";
 import { PhotoDropzone } from "@/components/PhotoDropzone";
 import { RenameDesignForm } from "@/components/RenameDesignForm";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
-import { COLOR_NONE, SKU_COLORS, planDesignChanges, type DesignRow } from "@/lib/sku";
+import {
+  COLOR_NONE,
+  PHOTO_GROUPS,
+  SKU_COLORS,
+  photoGroupOf,
+  planDesignChanges,
+  type DesignRow,
+} from "@/lib/sku";
 import type { RecipeStepOption } from "@/lib/stages";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +46,8 @@ export function SkuDesignForm({
   models: ModelOption[];
   rows: DesignRow[];
   allSkus: string[];
-  // Photos existantes, par couleur (cle : COLOR_NONE ou code couleur).
+  // Photos existantes, par couleur et groupe de modeles (cle :
+  // "<COLOR_NONE ou code couleur>__<groupe>", ex : "BLK__speedy-35-40").
   photos: Record<string, ColorPhotos>;
   // Etapes de fabrication disponibles, recette actuelle de chaque couleur,
   // couleurs dont les codes n'ont pas tous la meme recette (heritage), et
@@ -106,6 +114,18 @@ export function SkuDesignForm({
     }
     return slots;
   }, [selectedColors]);
+
+  // Groupes de photos concernes : ceux des modeles coches (Speedy 25-30,
+  // Speedy 35-40, Keepall, Neverfull, Birkin), dans l'ordre d'affichage.
+  const photoGroups = useMemo(() => {
+    const keys = new Set<string>();
+    for (const m of models) {
+      if (!selectedModels.has(m.id)) continue;
+      const g = photoGroupOf(m.name, m.baseSize);
+      if (g) keys.add(g);
+    }
+    return PHOTO_GROUPS.filter((g) => keys.has(g.key));
+  }, [models, selectedModels]);
 
   // Recettes modifiees pour des couleurs encore cochees (une couleur decochee
   // n'est plus envoyee : ses modifications sont ignorees).
@@ -409,15 +429,16 @@ export function SkuDesignForm({
             <div className="card rounded-sm p-5">
               <h3 className="mb-1 font-serif text-[17px] text-paper">Photos</h3>
               <p className="mb-3.5 text-xs text-paper/55">
-                Recto et verso, une paire par couleur : elle s&apos;applique à tous les codes de cette couleur.
+                Recto et verso pour chaque couleur et chaque groupe de modèles coché. Une photo s&apos;applique à tous
+                les codes du groupe, dans cette couleur.
               </p>
-              {photoSlots.length === 0 ? (
-                <p className="text-sm text-paper/45">Coche une couleur pour ajouter ses photos.</p>
+              {photoSlots.length === 0 || photoGroups.length === 0 ? (
+                <p className="text-sm text-paper/45">Coche un modèle et une couleur pour ajouter les photos.</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-5">
                   {photoSlots.map((slot) => (
                     <div key={slot.key}>
-                      <p className="mb-1.5 flex items-center gap-2 text-sm text-paper/80">
+                      <p className="mb-2 flex items-center gap-2 text-sm text-paper/80">
                         {slot.swatch && (
                           <span
                             aria-hidden="true"
@@ -427,19 +448,29 @@ export function SkuDesignForm({
                         )}
                         {slot.label}
                       </p>
-                      <div className="flex gap-3">
-                        <PhotoDropzone
-                          name={`photo__${slot.key}`}
-                          label="Recto"
-                          existingUrl={photos[slot.key]?.front ?? null}
-                          onPick={() => setPhotosPicked((n) => n + 1)}
-                        />
-                        <PhotoDropzone
-                          name={`photo_back__${slot.key}`}
-                          label="Verso"
-                          existingUrl={photos[slot.key]?.back ?? null}
-                          onPick={() => setPhotosPicked((n) => n + 1)}
-                        />
+                      <div className="space-y-3 border-l border-line pl-3.5">
+                        {photoGroups.map((group) => {
+                          const field = `${slot.key}__${group.key}`;
+                          return (
+                            <div key={group.key}>
+                              <p className="mb-1.5 text-xs text-paper/60">{group.label}</p>
+                              <div className="flex gap-3">
+                                <PhotoDropzone
+                                  name={`photo__${field}`}
+                                  label="Recto"
+                                  existingUrl={photos[field]?.front ?? null}
+                                  onPick={() => setPhotosPicked((n) => n + 1)}
+                                />
+                                <PhotoDropzone
+                                  name={`photo_back__${field}`}
+                                  label="Verso"
+                                  existingUrl={photos[field]?.back ?? null}
+                                  onPick={() => setPhotosPicked((n) => n + 1)}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}

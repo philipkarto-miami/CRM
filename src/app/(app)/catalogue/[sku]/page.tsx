@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { updateSkuCatalogEntry, deleteSkuCatalogEntry } from "../actions";
 import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
-import { PhotoDropzone } from "@/components/PhotoDropzone";
 import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { SavedToast } from "@/components/SavedToast";
@@ -95,11 +94,33 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
           </div>
 
           <div className="mt-3.5">
-            <p className="mb-1.5 text-xs text-paper/55">Photos (au moins recto + verso)</p>
+            <p className="mb-1.5 text-xs text-paper/55">Photos</p>
             <div className="flex gap-3">
-              <PhotoDropzone name="photo" label="Recto" existingUrl={photoUrl} />
-              <PhotoDropzone name="photo_back" label="Verso" existingUrl={photoBackUrl} />
+              {[
+                { label: "Recto", url: photoUrl },
+                { label: "Verso", url: photoBackUrl },
+              ].map((photo) => (
+                <div
+                  key={photo.label}
+                  className="flex aspect-square w-24 items-center justify-center overflow-hidden rounded-sm border border-line bg-bone/60 p-1.5 text-center text-[10px] text-paper/45"
+                >
+                  {photo.url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photo.url} alt={photo.label} className="h-full w-full object-cover" />
+                  ) : (
+                    photo.label
+                  )}
+                </div>
+              ))}
             </div>
+            <p className="mt-1.5 text-[11px] text-paper/50">
+              Les photos sont communes à un groupe de modèles (ex : Speedy 35 et 40) dans une couleur. Elles se règlent
+              dans la{" "}
+              <Link href={designUrl} className="text-gold underline underline-offset-2">
+                fiche du design PK{design}
+              </Link>
+              .
+            </p>
           </div>
 
           <div className="mt-3.5">

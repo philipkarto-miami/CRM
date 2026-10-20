@@ -245,3 +245,33 @@ export function skuFitsBag(
   const familyClash = Boolean(b.family && e.family && b.family !== e.family);
   return { ok: !sizeClash && !familyClash, bagLabel: b.label, entryLabel: e.label };
 }
+
+// ---------------------------------------------------------------------------
+// Groupes de photos : une paire recto/verso par (groupe x couleur), partagee
+// par tous les codes du groupe. Les tailles qui se ressemblent partagent leur
+// photo ; seuls les groupes des modeles coches sont a renseigner.
+// ---------------------------------------------------------------------------
+
+export const PHOTO_GROUPS = [
+  { key: "speedy-25-30", label: "Speedy 25 et 30" },
+  { key: "speedy-35-40", label: "Speedy 35 et 40" },
+  { key: "keepall", label: "Keepall (toutes tailles)" },
+  { key: "neverfull", label: "Neverfull (toutes tailles)" },
+  { key: "birkin", label: "Birkin (toutes tailles)" },
+] as const;
+
+export type PhotoGroupKey = (typeof PHOTO_GROUPS)[number]["key"];
+
+// Groupe de photos d'un modele de sac (null si le modele n'entre dans aucun groupe).
+export function photoGroupOf(modelName: string | null | undefined, baseSize: string | null | undefined): PhotoGroupKey | null {
+  const name = (modelName ?? "").toLowerCase();
+  if (name.includes("keepall")) return "keepall";
+  if (name.includes("neverfull")) return "neverfull";
+  if (name.includes("birkin")) return "birkin";
+  if (name.includes("speedy")) {
+    const size = parseInt((baseSize ?? "").match(/\d+/)?.[0] ?? "", 10);
+    if (!Number.isFinite(size)) return null;
+    return size <= 30 ? "speedy-25-30" : "speedy-35-40";
+  }
+  return null;
+}

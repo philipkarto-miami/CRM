@@ -8,6 +8,8 @@ import {
   generateSkuVariants,
   isSkuColorCode,
   normalizeDesign,
+  PHOTO_GROUPS,
+  photoGroupOf,
   planDesignChanges,
   sizeCode,
   type DesignModel,
@@ -337,13 +339,23 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
   }
   const plan = planDesignChanges({ ...planArgs, allSkus: taken });
 
-  // Photos : une paire recto/verso par couleur, partagee par tous les codes de
-  // cette couleur dans le design. Un nouveau code reprend celle de sa couleur.
-  const photoByColor = new Map<string, { front: string | null; back: string | null }>();
+  // Photos : une paire recto/verso par (groupe de modeles x couleur), partagee
+  // par tous les codes du groupe (ex : Speedy 35 et 40). Un nouveau code reprend
+  // celle de son groupe et de sa couleur, s'il y en a une.
+  const modelById = new Map(models.map((m) => [m.id, m]));
+  const groupOfModel = (modelId: string | null): string | null => {
+    const m = modelId ? modelById.get(modelId) : undefined;
+    return m ? photoGroupOf(m.name, m.baseSize) : null;
+  };
+  const slotKey = (colorKey: string, groupKey: string) => `${colorKey}__${groupKey}`;
+
+  const photoBySlot = new Map<string, { front: string | null; back: string | null }>();
   for (const r of rows) {
-    const key = (r.color_code ?? COLOR_NONE) as string;
-    const current = photoByColor.get(key) ?? { front: null, back: null };
-    photoByColor.set(key, {
+    const group = groupOfModel((r.bag_model_id ?? null) as string | null);
+    if (!group) continue;
+    const key = slotKey((r.color_code ?? COLOR_NONE) as string, group);
+    const current = photoBySlot.get(key) ?? { front: null, back: null };
+    photoBySlot.set(key, {
       front: current.front ?? (r.photo_path as string | null) ?? null,
       back: current.back ?? (r.photo_path_back as string | null) ?? null,
     });
@@ -353,7 +365,8 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
   if (plan.create.length > 0) {
     const { error } = await supabase.from("sku_catalog").insert(
       plan.create.map((c) => {
-        const photos = photoByColor.get(c.colorCode ?? COLOR_NONE);
+        const group = groupOfModel(c.modelId);
+        const photos = group ? photoBySlot.get(slotKey(c.colorCode ?? COLOR_NONE, group)) : undefined;
         return {
           sku: c.sku,
           design,
@@ -385,26 +398,38 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
     }
   }
 
-  // Photos deposees dans la fiche : appliquees a tous les codes de la couleur
-  // (y compris ceux qui viennent d'etre crees ci-dessus).
+  // Photos deposees dans la fiche (champs photo__<couleur>__<groupe> et
+  // photo_back__<couleur>__<groupe>) : appliquees a tous les codes de la couleur
+  // dont le modele fait partie du groupe (y compris ceux qui viennent d'etre
+  // crees ci-dessus).
   let photosSaved = 0;
-  for (const key of colorKeys) {
-    const payload: Record<string, string> = {};
-    try {
-      const front = await uploadPhotoIfPresent(supabase, `${design}-${key}`, formData, `photo__${key}`);
-      const back = await uploadPhotoIfPresent(supabase, `${design}-${key}`, formData, `photo_back__${key}`);
-      if (front) payload.photo_path = front;
-      if (back) payload.photo_path_back = back;
-    } catch (e) {
-      fail(e instanceof Error ? e.message : "Envoi de la photo impossible.");
-    }
-    if (Object.keys(payload).length === 0) continue;
+  for (const colorKey of colorKeys) {
+    for (const group of PHOTO_GROUPS) {
+      const field = slotKey(colorKey, group.key);
+      const payload: Record<string, string> = {};
+      try {
+        const front = await uploadPhotoIfPresent(supabase, `${design}-${field}`, formData, `photo__${field}`);
+        const back = await uploadPhotoIfPresent(supabase, `${design}-${field}`, formData, `photo_back__${field}`);
+        if (front) payload.photo_path = front;
+        if (back) payload.photo_path_back = back;
+      } catch (e) {
+        fail(e instanceof Error ? e.message : "Envoi de la photo impossible.");
+      }
+      if (Object.keys(payload).length === 0) continue;
 
-    let query = supabase.from("sku_catalog").update(payload).eq("design", design);
-    query = key === COLOR_NONE ? query.is("color_code", null) : query.eq("color_code", key);
-    const { error } = await query;
-    if (error) fail(error.message);
-    photosSaved += Object.keys(payload).length;
+      const groupModelIds = models.filter((m) => photoGroupOf(m.name, m.baseSize) === group.key).map((m) => m.id);
+      if (groupModelIds.length === 0) continue;
+
+      let query = supabase
+        .from("sku_catalog")
+        .update(payload)
+        .eq("design", design)
+        .in("bag_model_id", groupModelIds);
+      query = colorKey === COLOR_NONE ? query.is("color_code", null) : query.eq("color_code", colorKey);
+      const { error } = await query;
+      if (error) fail(error.message);
+      photosSaved += Object.keys(payload).length;
+    }
   }
 
   // Recettes de fabrication : une par couleur, commune a tous les modeles et
@@ -440,18 +465,14 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
 export async function updateSkuCatalogEntry(sku: string, formData: FormData) {
   const supabase = createClient();
 
-  const photoPath = await uploadPhotoIfPresent(supabase, sku, formData, "photo");
-  const photoPathBack = await uploadPhotoIfPresent(supabase, sku, formData, "photo_back");
-
-  // La recette (steps) n'est plus modifiable code par code : elle est commune a
-  // tous les codes d'une meme couleur et se regle dans la fiche du design.
+  // La recette (steps) et les photos ne sont plus modifiables code par code :
+  // elles sont communes a un groupe de modeles / une couleur et se reglent dans
+  // la fiche du design.
   const payload: Record<string, unknown> = {
     edition: str(formData, "edition"),
     description: str(formData, "description"),
     bag_model_id: str(formData, "bag_model_id"),
   };
-  if (photoPath) payload.photo_path = photoPath;
-  if (photoPathBack) payload.photo_path_back = photoPathBack;
 
   await supabase.from("sku_catalog").update(payload).eq("sku", sku);
   revalidatePath("/catalogue");
