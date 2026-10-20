@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { LinkButton } from "@/components/ui/Button";
+import { SavedToast } from "@/components/SavedToast";
 import type { SkuCatalog } from "@/types/database";
 
 export default async function CataloguePage({ searchParams }: { searchParams: { q?: string } }) {
@@ -23,10 +24,11 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
 
   return (
     <div>
+      <SavedToast />
       <PageHeader
         eyebrow="Catalogue"
         title="Codes PK"
-        action={<LinkButton href="/catalogue/new">+ Nouveau code PK</LinkButton>}
+        action={<LinkButton href="/catalogue/new">+ Nouveau design</LinkButton>}
       />
 
       <form className="mb-4">

@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { generateSkuVariants, isSkuColorCode, normalizeDesign, sizeCode, type SkuModelInput } from "@/lib/sku";
 import type { StagePhase } from "@/types/database";
 
 function str(formData: FormData, key: string) {
@@ -104,35 +105,96 @@ async function uploadPhotoIfPresent(
   return path;
 }
 
-export async function createSkuCatalogEntry(formData: FormData): Promise<void> {
+function failNewSku(message: string): never {
+  redirect(`/catalogue/new?error=${encodeURIComponent(message)}`);
+}
+
+// Creation d'un design : une saisie (acronyme + modeles coches + couleurs
+// cochees) genere autant de codes PK que de combinaisons modele x couleur.
+// Tous partagent la meme edition, description et recette de fabrication ;
+// photos et ajustements se font ensuite code par code. Les codes deja presents
+// dans le catalogue sont ignores (jamais ecrases).
+export async function createSkuCatalogBatch(formData: FormData): Promise<void> {
   const supabase = createClient();
-  const sku = str(formData, "sku")?.trim().toUpperCase();
-  if (!sku) {
-    redirect(`/catalogue/new?error=${encodeURIComponent("Le SKU est obligatoire")}`);
+
+  const design = normalizeDesign(String(formData.get("design") ?? ""));
+  if (!design) failNewSku("L'acronyme du design est obligatoire (lettres et chiffres uniquement).");
+
+  const modelIds = formData.getAll("model_ids").map(String).filter(Boolean);
+  if (modelIds.length === 0) failNewSku("Coche au moins un modele de sac.");
+
+  const colorCodes = formData.getAll("colors").map(String).filter(isSkuColorCode);
+
+  const { data: modelRows, error: modelError } = await supabase
+    .from("bag_models")
+    .select("id, name, base_size, sort_order, brands(name)")
+    .in("id", modelIds);
+  if (modelError) failNewSku(modelError.message);
+
+  const models: SkuModelInput[] = (modelRows ?? [])
+    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
+    .map((m) => {
+      const brand = Array.isArray(m.brands) ? m.brands[0] : m.brands;
+      return {
+        id: m.id as string,
+        label: [brand?.name, m.name, m.base_size].filter(Boolean).join(" "),
+        baseSize: m.base_size as string | null,
+      };
+    });
+
+  const withoutSize = models.find((m) => !sizeCode(m.baseSize));
+  if (withoutSize) failNewSku(`Le modele « ${withoutSize.label} » n'a pas de taille : impossible de construire son code PK.`);
+
+  const variants = generateSkuVariants(design, colorCodes, models);
+
+  // Deux modeles ne doivent pas aboutir au meme code (ex : Speedy 30 et
+  // Birkin 30 donnent tous deux ...30).
+  const seen = new Map<string, string>();
+  for (const v of variants) {
+    const other = seen.get(v.sku);
+    if (other) {
+      failNewSku(`Le code ${v.sku} serait cree deux fois (${other} et ${v.modelLabel}). Cree ce design separement pour chacun de ces modeles.`);
+    }
+    seen.set(v.sku, v.modelLabel);
   }
 
-  const photoPath = await uploadPhotoIfPresent(supabase, sku as string, formData, "photo");
-  const photoPathBack = await uploadPhotoIfPresent(supabase, sku as string, formData, "photo_back");
+  const { data: existingRows, error: existingError } = await supabase
+    .from("sku_catalog")
+    .select("sku")
+    .in(
+      "sku",
+      variants.map((v) => v.sku)
+    );
+  if (existingError) failNewSku(existingError.message);
 
-  const payload = {
-    sku,
-    edition: str(formData, "edition"),
-    description: str(formData, "description"),
-    // Le modele PK (ce SKU) transforme toujours un seul modele fournisseur
-    // precis : c'est ce qui permettra a la vente de retrouver le bon stock.
-    bag_model_id: str(formData, "bag_model_id"),
-    steps: readSteps(formData),
-    photo_path: photoPath,
-    photo_path_back: photoPathBack,
-  };
+  const existing = new Set((existingRows ?? []).map((r) => r.sku as string));
+  const toCreate = variants.filter((v) => !existing.has(v.sku));
+  if (toCreate.length === 0) failNewSku("Tous ces codes PK existent deja dans le catalogue.");
 
-  const { error } = await supabase.from("sku_catalog").insert(payload);
-  if (error) {
-    redirect(`/catalogue/new?error=${encodeURIComponent(error.message)}`);
-  }
+  const steps = readSteps(formData);
+  const edition = str(formData, "edition");
+  const description = str(formData, "description");
+
+  const { error } = await supabase.from("sku_catalog").insert(
+    toCreate.map((v) => ({
+      sku: v.sku,
+      edition,
+      description,
+      // Un code PK transforme toujours un seul modele fournisseur precis :
+      // c'est ce qui permet de retrouver le bon stock a la vente.
+      bag_model_id: v.modelId,
+      steps,
+    }))
+  );
+  if (error) failNewSku(error.message);
+
+  const skipped = variants.length - toCreate.length;
+  const message =
+    `${toCreate.length} code${toCreate.length > 1 ? "s" : ""} PK cree${toCreate.length > 1 ? "s" : ""}` +
+    (skipped > 0 ? ` · ${skipped} deja existant${skipped > 1 ? "s" : ""} ignore${skipped > 1 ? "s" : ""}` : "");
 
   revalidatePath("/catalogue");
-  redirect(`/catalogue/${sku}?saved=${encodeURIComponent("Code PK cree")}`);
+  redirect(`/catalogue?q=${encodeURIComponent(`PK${design}`)}&saved=${encodeURIComponent(message)}`);
 }
 
 export async function updateSkuCatalogEntry(sku: string, formData: FormData) {
