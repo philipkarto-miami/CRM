@@ -1,9 +1,13 @@
 // Generation des codes PK (SKU) a partir d'un design, de couleurs et de modeles.
 //
-// Forme d'un code : "PK" + acronyme du design + lettre(s) couleur + taille
+// Forme d'un code : "PK" + acronyme du design + marqueur de famille + lettre(s)
+// couleur + taille
+//   - marqueur de famille : "NF" pour Neverfull, "H" pour Birkin, rien pour
+//     Speedy et Keepall (voir FAMILY_MARKERS)
 //   - taille = nombre pour Speedy / Keepall / Birkin (25, 30, 35, 40, 45...)
 //   - taille = les deux lettres pour Neverfull (PM, MM, GM)
-//   ex : design POP, orange, Speedy 35 -> PKPOPO35 ; Neverfull MM -> PKPOPOMM
+//   ex : design POP, orange : Speedy 35 -> PKPOPO35 ; Neverfull MM -> PKPOPNFOMM ;
+//        Birkin 30 -> PKPOPHO30
 //
 // Ce module est partage entre le formulaire (apercu en direct) et l'action
 // serveur (creation reelle) pour que les deux calculent toujours les memes codes.
@@ -41,7 +45,19 @@ export function sizeCode(baseSize: string | null | undefined): string {
   return (baseSize ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-export type SkuModelInput = { id: string; label: string; baseSize: string | null };
+// Lettres ajoutees entre le design et la couleur selon la famille du modele
+// (cherchees dans le nom du modele, sans tenir compte de la casse).
+const FAMILY_MARKERS: { match: string; marker: string }[] = [
+  { match: "neverfull", marker: "NF" },
+  { match: "birkin", marker: "H" },
+];
+
+export function familyMarker(modelName: string | null | undefined): string {
+  const name = (modelName ?? "").toLowerCase();
+  return FAMILY_MARKERS.find((f) => name.includes(f.match))?.marker ?? "";
+}
+
+export type SkuModelInput = { id: string; name: string; label: string; baseSize: string | null };
 
 export type SkuVariant = {
   sku: string;
@@ -69,9 +85,10 @@ export function generateSkuVariants(
   for (const model of models) {
     const size = sizeCode(model.baseSize);
     if (!size) continue;
+    const marker = familyMarker(model.name);
     for (const color of colorChoices) {
       variants.push({
-        sku: `PK${cleanDesign}${color?.code ?? ""}${size}`,
+        sku: `PK${cleanDesign}${marker}${color?.code ?? ""}${size}`,
         modelId: model.id,
         modelLabel: model.label,
         colorCode: color?.code ?? null,

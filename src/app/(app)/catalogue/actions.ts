@@ -137,6 +137,7 @@ export async function createSkuCatalogBatch(formData: FormData): Promise<void> {
       const brand = Array.isArray(m.brands) ? m.brands[0] : m.brands;
       return {
         id: m.id as string,
+        name: m.name as string,
         label: [brand?.name, m.name, m.base_size].filter(Boolean).join(" "),
         baseSize: m.base_size as string | null,
       };

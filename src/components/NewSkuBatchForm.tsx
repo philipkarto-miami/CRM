@@ -52,7 +52,12 @@ export function NewSkuBatchForm({
     () =>
       models
         .filter((m) => selectedModels.has(m.id))
-        .map((m) => ({ id: m.id, label: [m.brand, m.name, m.baseSize].filter(Boolean).join(" "), baseSize: m.baseSize })),
+        .map((m) => ({
+          id: m.id,
+          name: m.name,
+          label: [m.brand, m.name, m.baseSize].filter(Boolean).join(" "),
+          baseSize: m.baseSize,
+        })),
     [models, selectedModels]
   );
 
@@ -266,8 +271,9 @@ export function NewSkuBatchForm({
               </p>
             )}
             <p className="mt-3 text-[11px] text-paper/50">
-              Format : PK + design + couleur + taille (25, 30, 35, 40… ou PM, MM, GM pour le Neverfull). Les photos
-              se déposent ensuite sur chaque code, couleur par couleur.
+              Format : PK + design + couleur + taille (25, 30, 35, 40… ou PM, MM, GM pour le Neverfull). Neverfull :
+              « NF » et Birkin : « H » s&apos;ajoutent entre le design et la couleur (ex : PKPOPNFOMM, PKPOPHO30).
+              Les photos se déposent ensuite sur chaque code, couleur par couleur.
             </p>
           </div>
         </div>
