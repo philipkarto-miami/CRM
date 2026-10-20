@@ -8,6 +8,7 @@ import { ConfirmSubmitButton } from "@/components/ConfirmSubmitButton";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
 import { SavedToast } from "@/components/SavedToast";
+import { toRecipeSteps } from "@/lib/stages";
 import type { BagModel, SkuCatalog } from "@/types/database";
 
 export default async function SkuCatalogDetailPage({ params }: { params: { sku: string } }) {
@@ -109,11 +110,7 @@ export default async function SkuCatalogDetailPage({ params }: { params: { sku: 
         <div>
           <div className="card rounded-sm p-5">
             <SkuStepsEditor
-              availableSteps={(stages ?? []).map((s) => ({
-                code: s.catalog_column as string,
-                name: s.name,
-                phase: s.phase,
-              }))}
+              availableSteps={toRecipeSteps(stages ?? [])}
               initialSteps={typedEntry.steps ?? {}}
             />
           </div>

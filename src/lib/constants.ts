@@ -76,9 +76,9 @@ export const SALE_TYPE_LABELS = {
 // = etape sous-traitee.
 export const SKU_STEP_COLUMNS: { code: string; label: string }[] = [
   { code: "RECEPTION", label: "Reception" },
-  { code: "DISASSEMBLING", label: "Desassemblage / nettoyage / fermeture eclair" },
+  { code: "DISASSEMBLING", label: "Desassemblage / nettoyage / repassage / fermeture eclair" },
+  { code: "BANDS", label: "Ajout des bandes (Speedy 35+ / Keepall)" },
   { code: "EMBROIDERY_SIDE", label: "Broderie cote" },
-  { code: "BANDS", label: "Pose des bandes" },
   { code: "EMBROIDERY", label: "Broderie" },
   { code: "HANDLES", label: "Pose des anses" },
   { code: "LINING", label: "Doublure" },

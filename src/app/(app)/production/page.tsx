@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { ProductionColumns, type ProductionCard, type ProductionColumn } from "@/components/ProductionColumns";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
+import { sortPhaseStages } from "@/lib/stages";
 import { cn } from "@/lib/utils";
 import type { Bag, BagStageProgress, ProductionStage } from "@/types/database";
 
@@ -54,9 +55,9 @@ export default async function ProductionPage({
   // etape de sa phase actuelle (les phases passees sont deja terminees, les
   // futures pas encore commencees).
   const cards: ProductionCard[] = sortedBags.map((bag) => {
-    const currentPhaseProgress = bag.bag_stage_progress
-      .filter((p) => p.production_stages.phase === bag.current_phase)
-      .sort((a, b) => (a.sequence_override ?? a.production_stages.order_index) - (b.sequence_override ?? b.production_stages.order_index));
+    const currentPhaseProgress = sortPhaseStages(
+      bag.bag_stage_progress.filter((p) => p.production_stages.phase === bag.current_phase)
+    );
 
     const blockedStep = currentPhaseProgress.find((p) => p.status === "bloque") ?? null;
     const nextStep = currentPhaseProgress.find((p) => p.status !== "termine") ?? null;

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateStageProgress } from "@/app/(app)/bags/actions";
 import { PHASE_LABELS, PHASE_ORDER, STAGE_STATUS_LABELS } from "@/lib/constants";
+import { sortPhaseStages } from "@/lib/stages";
 import type { BagStageProgress, ProductionStage, StageStatus } from "@/types/database";
 import { cn } from "@/lib/utils";
 
@@ -29,14 +30,12 @@ export function StageChecklist({ bagId, progress }: { bagId: string; progress: P
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Une etape dont sequence_override est renseigne a ete positionnee selon
-  // le SKU attribue au sac (peut differer de l'ordre par defaut) ; sinon on
-  // retombe sur l'ordre par defaut de production_stages.
-  const sortKey = (p: Progress) => p.sequence_override ?? p.production_stages.order_index;
-
+  // Ordre : recette du SKU attribue au sac pour les etapes qu'elle pilote, ordre
+  // par defaut de production_stages pour les etapes toujours applicables
+  // (voir sortPhaseStages).
   const grouped = PHASE_ORDER.map((phase) => ({
     phase,
-    items: progress.filter((p) => p.production_stages.phase === phase).sort((a, b) => sortKey(a) - sortKey(b)),
+    items: sortPhaseStages(progress.filter((p) => p.production_stages.phase === phase)),
   })).filter((g) => g.items.length > 0);
 
   function setStatus(item: Progress, status: StageStatus) {

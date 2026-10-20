@@ -4,6 +4,7 @@ import { createSkuCatalogEntry } from "../actions";
 import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { PhotoDropzone } from "@/components/PhotoDropzone";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
+import { toRecipeSteps } from "@/lib/stages";
 import type { BagModel } from "@/types/database";
 
 export default async function NewSkuCatalogPage({ searchParams }: { searchParams: { error?: string } }) {
@@ -79,11 +80,7 @@ export default async function NewSkuCatalogPage({ searchParams }: { searchParams
         <div>
           <div className="card rounded-sm p-5">
             <SkuStepsEditor
-              availableSteps={(stages ?? []).map((s) => ({
-                code: s.catalog_column as string,
-                name: s.name,
-                phase: s.phase,
-              }))}
+              availableSteps={toRecipeSteps(stages ?? [])}
               initialSteps={{}}
             />
           </div>

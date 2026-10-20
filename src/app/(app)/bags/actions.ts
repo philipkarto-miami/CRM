@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { PaymentStatus, StageStatus } from "@/types/database";
 import { PAYMENT_STATUS_LABELS } from "@/lib/constants";
+import { bandsAllowed } from "@/lib/stages";
 
 function str(formData: FormData, key: string) {
   const v = formData.get(key);
@@ -223,10 +224,16 @@ export async function assignSku(
 
   if (bagError) return { error: bagError.message };
 
-  const [{ data: stages }, { data: existingProgress }] = await Promise.all([
+  const [{ data: stages }, { data: existingProgress }, { data: bagRow }] = await Promise.all([
     supabase.from("production_stages").select("*").eq("is_active", true),
     supabase.from("bag_stage_progress").select("*").eq("bag_id", bagId),
+    supabase.from("bags").select("model_label, size, bag_models(name, base_size)").eq("id", bagId).maybeSingle(),
   ]);
+
+  // "Ajout des bandes" : uniquement Speedy 35+ et Keepall, meme si la recette
+  // du SKU la prevoit.
+  const bagModel = Array.isArray(bagRow?.bag_models) ? bagRow?.bag_models[0] : bagRow?.bag_models;
+  const bandsOk = bandsAllowed(bagModel?.name ?? bagRow?.model_label, bagModel?.base_size ?? bagRow?.size);
 
   const existingByStage = new Map((existingProgress ?? []).map((p) => [p.stage_id, p]));
 
@@ -252,7 +259,13 @@ export async function assignSku(
     const raw = steps[stage.catalog_column];
     // 0 est traite exactement comme une case vide : l'etape ne s'applique
     // pas a ce SKU (confirme sur le fichier maitre de l'atelier).
-    const applicable = raw !== undefined && raw !== null && raw !== "" && raw !== 0 && raw !== "0";
+    const applicable =
+      raw !== undefined &&
+      raw !== null &&
+      raw !== "" &&
+      raw !== 0 &&
+      raw !== "0" &&
+      !(stage.catalog_column === "BANDS" && !bandsOk);
 
     if (!applicable) {
       if (existing) toDelete.push(existing.id);
