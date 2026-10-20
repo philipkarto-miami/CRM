@@ -44,18 +44,24 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
     byDesign.set(design, card);
   }
 
+  // Recherche tolerante : casse, espaces et tirets ignores ("pk sblk-30" trouve
+  // PKSBLK30). Un code precis (sous-code) retrouve la fiche du design qui le
+  // contient ; la carte affiche alors le ou les codes trouves.
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9.]/g, "");
+  const nq = norm(q);
+
   const cards = [...byDesign.values()]
-    .filter(
-      (c) =>
-        !q ||
-        c.design.toLowerCase().includes(q) ||
-        (c.edition ?? "").toLowerCase().includes(q) ||
-        c.codes.some((code) => code.toLowerCase().includes(q))
-    )
-    .sort((a, b) => a.design.localeCompare(b.design));
+    .map((card) => {
+      if (!nq) return { card, matched: [] as string[], wholeDesign: true };
+      const wholeDesign = norm(`PK${card.design}`).includes(nq) || norm(card.edition ?? "").includes(nq);
+      const matched = card.codes.filter((code) => norm(code).includes(nq));
+      return { card, matched: wholeDesign ? card.codes : matched, wholeDesign };
+    })
+    .filter((entry) => !nq || entry.matched.length > 0)
+    .sort((a, b) => a.card.design.localeCompare(b.card.design));
 
   const photoUrls = new Map<string, string>();
-  const paths = [...new Set(cards.map((c) => c.photoPath).filter((p): p is string => Boolean(p)))];
+  const paths = [...new Set(cards.map((c) => c.card.photoPath).filter((p): p is string => Boolean(p)))];
   if (paths.length > 0) {
     const { data } = await supabase.storage.from("sku-photos").createSignedUrls(paths, 3600);
     for (const item of data ?? []) {
@@ -63,7 +69,7 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
     }
   }
 
-  const codeCount = cards.reduce((sum, c) => sum + c.codes.length, 0);
+  const codeCount = cards.reduce((sum, c) => sum + (nq ? c.matched.length : c.card.codes.length), 0);
 
   return (
     <div>
@@ -101,27 +107,45 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
       </p>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        {cards.map((card) => (
-          <Link
-            key={card.design}
-            href={`/catalogue/design/${encodeURIComponent(card.design)}`}
-            className="card block space-y-2.5 rounded-sm p-3 hover:border-gold/40"
-          >
-            <div className="flex aspect-square items-center justify-center overflow-hidden rounded-sm bg-black/[0.03]">
-              {card.photoPath && photoUrls.has(card.photoPath) ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={photoUrls.get(card.photoPath)} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <span className="text-xs text-paper/30">Pas de photo</span>
+        {cards.map(({ card, matched, wholeDesign }) => {
+          // Recherche d'un sous-code : on montre les codes trouves (liens directs
+          // vers leur fiche), la carte elle-meme ouvre la fiche mere du design.
+          const showMatches = Boolean(nq) && !wholeDesign && matched.length > 0;
+          return (
+            <div key={card.design} className="card space-y-2.5 rounded-sm p-3 hover:border-gold/40">
+              <Link href={`/catalogue/design/${encodeURIComponent(card.design)}`} className="block space-y-2.5">
+                <div className="flex aspect-square items-center justify-center overflow-hidden rounded-sm bg-black/[0.03]">
+                  {card.photoPath && photoUrls.has(card.photoPath) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoUrls.get(card.photoPath)} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-xs text-paper/30">Pas de photo</span>
+                  )}
+                </div>
+                <p className="text-sm text-paper/80">PK{card.design}</p>
+                <p className="text-xs text-paper/40">
+                  {card.codes.length} code{card.codes.length > 1 ? "s" : ""}
+                  {card.edition ? ` · ${card.edition}` : ""}
+                </p>
+              </Link>
+              {showMatches && (
+                <div className="flex flex-wrap gap-1 border-t border-line/60 pt-2">
+                  {matched.slice(0, 4).map((code) => (
+                    <Link
+                      key={code}
+                      href={`/catalogue/${encodeURIComponent(code)}`}
+                      title="Ouvrir ce code"
+                      className="rounded-sm border border-gold/50 bg-gold/10 px-1.5 py-0.5 font-mono text-[11px] text-paper/80 hover:border-gold"
+                    >
+                      {code}
+                    </Link>
+                  ))}
+                  {matched.length > 4 && <span className="px-1 py-0.5 text-[11px] text-paper/45">+{matched.length - 4}</span>}
+                </div>
               )}
             </div>
-            <p className="text-sm text-paper/80">PK{card.design}</p>
-            <p className="text-xs text-paper/40">
-              {card.codes.length} code{card.codes.length > 1 ? "s" : ""}
-              {card.edition ? ` · ${card.edition}` : ""}
-            </p>
-          </Link>
-        ))}
+          );
+        })}
         {cards.length === 0 && <p className="col-span-full py-10 text-center text-paper/40">Aucun design trouve.</p>}
       </div>
     </div>
