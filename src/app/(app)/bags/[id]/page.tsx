@@ -269,17 +269,22 @@ export default async function BagDetailPage({
               </FormRow>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <FormRow label="Date d'achat">
                 <Input type="date" name="purchase_date" defaultValue={typedBag.purchase_date ?? ""} />
               </FormRow>
               <FormRow label="Date de reception">
                 <Input type="date" name="received_date" defaultValue={typedBag.received_date ?? ""} />
               </FormRow>
-              <FormRow label="Date fabrication LV/Hermes">
-                <Input type="date" name="factory_date" defaultValue={typedBag.factory_date ?? ""} />
-              </FormRow>
             </div>
+
+            <FormRow label="Date de fabrication d'origine (LV / Hermes)">
+              <Input type="date" name="factory_date" defaultValue={typedBag.factory_date ?? ""} />
+              <p className="mt-1 text-xs text-paper/40">
+                Date initiale de fabrication du sac par la maison (Louis Vuitton ou Hermes) — pas la date
+                de reception, ni la fabrication en atelier.
+              </p>
+            </FormRow>
 
             <FormRow label="Lien Drive (photos)">
               <Input name="photos_link" defaultValue={typedBag.photos_link ?? ""} />

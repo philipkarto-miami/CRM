@@ -218,24 +218,34 @@ export function NewBagForm({
             onChange={(e) => setReceivedDate(e.target.value)}
           />
         </FormRow>
-        <FormRow label="Date de fabrication (LV / Hermès)">
+        <FormRow label="N° de facture fournisseur">
           <Input
-            type="date"
-            name="factory_date"
+            name="invoice_number"
             required
-            value={factoryDate}
-            onChange={(e) => setFactoryDate(e.target.value)}
+            value={invoiceNumber}
+            onChange={(e) => setInvoiceNumber(e.target.value)}
           />
         </FormRow>
       </div>
 
-      <FormRow label="N° de facture fournisseur">
+      {/*
+        Ligne a part, pleine largeur, avec une phrase d'explication : ce libelle
+        long ne tient pas dans une demi-colonne (il passait sur 2 lignes et
+        decalait les champs), et la distinction avec la date de reception
+        et la fabrication en atelier doit rester evidente.
+      */}
+      <FormRow label="Date de fabrication d'origine (LV / Hermès)">
         <Input
-          name="invoice_number"
+          type="date"
+          name="factory_date"
           required
-          value={invoiceNumber}
-          onChange={(e) => setInvoiceNumber(e.target.value)}
+          value={factoryDate}
+          onChange={(e) => setFactoryDate(e.target.value)}
         />
+        <p className="mt-1 text-xs text-paper/40">
+          Date initiale de fabrication du sac par la maison (Louis Vuitton ou Hermès) — pas la date
+          de réception, ni la fabrication en atelier.
+        </p>
       </FormRow>
 
       <div className="grid grid-cols-2 gap-4">
