@@ -3,9 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { LinkButton } from "@/components/ui/Button";
 import { SavedToast } from "@/components/SavedToast";
-import { deriveDesign, fetchAllRows } from "@/lib/catalogue";
+import { MIGRATION_0029_MESSAGE, deriveDesign, fetchAllRows } from "@/lib/catalogue";
 
-type CatalogRow = { sku: string; design: string | null; edition: string | null; photo_path: string | null };
+type CatalogRow = { sku: string; design?: string | null; edition: string | null; photo_path: string | null };
 
 type DesignCard = {
   design: string;
@@ -20,9 +20,19 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
   const supabase = createClient();
   const q = searchParams?.q?.trim().toLowerCase() ?? "";
 
-  const rows = await fetchAllRows<CatalogRow>((from, to) =>
+  // Lecture normale (avec la colonne `design` de la migration 0029). Si elle
+  // n'existe pas encore, on relit sans elle et on deduit le design du code :
+  // le catalogue reste visible au lieu de s'afficher vide.
+  let { rows, error } = await fetchAllRows<CatalogRow>((from, to) =>
     supabase.from("sku_catalog").select("sku, design, edition, photo_path").order("sku").range(from, to)
   );
+  let migrationMissing = false;
+  if (error) {
+    migrationMissing = true;
+    ({ rows, error } = await fetchAllRows<CatalogRow>((from, to) =>
+      supabase.from("sku_catalog").select("sku, edition, photo_path").order("sku").range(from, to)
+    ));
+  }
 
   const byDesign = new Map<string, DesignCard>();
   for (const row of rows) {
@@ -63,6 +73,17 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
         title="Codes PK"
         action={<LinkButton href="/catalogue/new">+ Nouveau design</LinkButton>}
       />
+
+      {error && (
+        <p className="mb-4 rounded-sm border border-danger bg-danger/5 px-3.5 py-2.5 text-xs text-danger">
+          Impossible de lire le catalogue : {error}
+        </p>
+      )}
+      {!error && migrationMissing && (
+        <p className="mb-4 rounded-sm border border-line bg-gold/5 px-3.5 py-2.5 text-xs text-paper/70">
+          {MIGRATION_0029_MESSAGE}
+        </p>
+      )}
 
       <form className="mb-4">
         <input

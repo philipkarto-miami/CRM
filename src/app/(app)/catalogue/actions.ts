@@ -200,7 +200,13 @@ export async function createSkuCatalogBatch(formData: FormData): Promise<void> {
       steps,
     }))
   );
-  if (error) failNewSku(error.message);
+  if (error) {
+    failNewSku(
+      /design|color_code/.test(error.message)
+        ? "La migration 0029_fiches_design_catalogue.sql n'est pas encore appliquee dans Supabase : lance-la dans l'editeur SQL, puis reessaie."
+        : error.message
+    );
+  }
 
   const skipped = variants.length - toCreate.length;
   const message =
@@ -209,6 +215,38 @@ export async function createSkuCatalogBatch(formData: FormData): Promise<void> {
 
   revalidatePath("/catalogue");
   redirect(`/catalogue?q=${encodeURIComponent(`PK${design}`)}&saved=${encodeURIComponent(message)}`);
+}
+
+// Renomme l'acronyme d'un design, donc tous ses codes PK, ainsi que les sacs et
+// commandes qui les utilisent (tout se fait dans la fonction SQL
+// rename_sku_design, en une seule transaction : voir migration 0030).
+export async function renameSkuDesign(formData: FormData): Promise<void> {
+  const supabase = createClient();
+  const design = String(formData.get("design") ?? "");
+  if (!design) redirect("/catalogue");
+
+  const ficheUrl = `/catalogue/design/${encodeURIComponent(design)}`;
+  function fail(message: string): never {
+    redirect(`${ficheUrl}?error=${encodeURIComponent(message)}`);
+  }
+
+  const newDesign = normalizeDesign(String(formData.get("new_design") ?? ""));
+  if (!newDesign) fail("L'acronyme est obligatoire (lettres et chiffres uniquement).");
+  if (newDesign === design) fail("C'est deja l'acronyme actuel.");
+
+  const { data, error } = await supabase.rpc("rename_sku_design", { p_old: design, p_new: newDesign });
+  if (error) {
+    fail(
+      /rename_sku_design|schema cache|find the function/i.test(error.message)
+        ? "La migration 0030_renommer_design.sql n'est pas encore appliquee dans Supabase : lance-la dans l'editeur SQL, puis reessaie."
+        : error.message
+    );
+  }
+
+  const newUrl = `/catalogue/design/${encodeURIComponent(newDesign)}`;
+  revalidatePath("/catalogue");
+  revalidatePath(newUrl);
+  redirect(`${newUrl}?saved=${encodeURIComponent(typeof data === "string" ? data : "Acronyme renomme")}`);
 }
 
 // Fiche d'un design existant : on coche des modeles et des couleurs, et on
@@ -276,18 +314,35 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
   }
   const plan = planDesignChanges({ ...planArgs, allSkus: taken });
 
+  // Photos : une paire recto/verso par couleur, partagee par tous les codes de
+  // cette couleur dans le design. Un nouveau code reprend celle de sa couleur.
+  const photoByColor = new Map<string, { front: string | null; back: string | null }>();
+  for (const r of rows) {
+    const key = (r.color_code ?? COLOR_NONE) as string;
+    const current = photoByColor.get(key) ?? { front: null, back: null };
+    photoByColor.set(key, {
+      front: current.front ?? (r.photo_path as string | null) ?? null,
+      back: current.back ?? (r.photo_path_back as string | null) ?? null,
+    });
+  }
+
   const reference = rows[0];
   if (plan.create.length > 0) {
     const { error } = await supabase.from("sku_catalog").insert(
-      plan.create.map((c) => ({
-        sku: c.sku,
-        design,
-        color_code: c.colorCode,
-        edition: reference.edition ?? null,
-        description: reference.description ?? null,
-        bag_model_id: c.modelId,
-        steps: reference.steps ?? {},
-      }))
+      plan.create.map((c) => {
+        const photos = photoByColor.get(c.colorCode ?? COLOR_NONE);
+        return {
+          sku: c.sku,
+          design,
+          color_code: c.colorCode,
+          edition: reference.edition ?? null,
+          description: reference.description ?? null,
+          bag_model_id: c.modelId,
+          steps: reference.steps ?? {},
+          photo_path: photos?.front ?? null,
+          photo_path_back: photos?.back ?? null,
+        };
+      })
     );
     if (error) fail(error.message);
   }
@@ -307,10 +362,33 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
     }
   }
 
+  // Photos deposees dans la fiche : appliquees a tous les codes de la couleur
+  // (y compris ceux qui viennent d'etre crees ci-dessus).
+  let photosSaved = 0;
+  for (const key of colorKeys) {
+    const payload: Record<string, string> = {};
+    try {
+      const front = await uploadPhotoIfPresent(supabase, `${design}-${key}`, formData, `photo__${key}`);
+      const back = await uploadPhotoIfPresent(supabase, `${design}-${key}`, formData, `photo_back__${key}`);
+      if (front) payload.photo_path = front;
+      if (back) payload.photo_path_back = back;
+    } catch (e) {
+      fail(e instanceof Error ? e.message : "Envoi de la photo impossible.");
+    }
+    if (Object.keys(payload).length === 0) continue;
+
+    let query = supabase.from("sku_catalog").update(payload).eq("design", design);
+    query = key === COLOR_NONE ? query.is("color_code", null) : query.eq("color_code", key);
+    const { error } = await query;
+    if (error) fail(error.message);
+    photosSaved += Object.keys(payload).length;
+  }
+
   const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
   const parts: string[] = [];
   if (plan.create.length > 0) parts.push(plural(plan.create.length, "code cree", "codes crees"));
   if (removed > 0) parts.push(plural(removed, "code supprime", "codes supprimes"));
+  if (photosSaved > 0) parts.push(plural(photosSaved, "photo enregistree", "photos enregistrees"));
   if (blocked > 0) parts.push(plural(blocked, "code garde (utilise par des sacs)", "codes gardes (utilises par des sacs)"));
   if (plan.conflicts.length > 0) {
     parts.push(plural(plan.conflicts.length, "code deja existant ailleurs ignore", "codes deja existants ailleurs ignores"));

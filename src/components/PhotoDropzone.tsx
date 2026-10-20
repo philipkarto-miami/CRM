@@ -12,10 +12,13 @@ export function PhotoDropzone({
   name = "photo",
   label = "Deposer une photo",
   existingUrl,
+  onPick,
 }: {
   name?: string;
   label?: string;
   existingUrl?: string | null;
+  // Prevenu quand un fichier est choisi (ex : activer le bouton Enregistrer).
+  onPick?: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -42,7 +45,10 @@ export function PhotoDropzone({
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) setPreview(URL.createObjectURL(file));
+          if (file) {
+            setPreview(URL.createObjectURL(file));
+            onPick?.();
+          }
         }}
       />
     </div>
