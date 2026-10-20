@@ -38,7 +38,7 @@ export function NewBagForm({
   const [modelId, setModelId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [authNumber, setAuthNumber] = useState("");
-  const [deliveryDate, setDeliveryDate] = useState("");
+  const [receivedDate, setReceivedDate] = useState("");
   const [factoryDate, setFactoryDate] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [sizeOk, setSizeOk] = useState(false);
@@ -53,7 +53,7 @@ export function NewBagForm({
     modelId !== "" &&
     supplierId !== "" &&
     authNumber.trim() !== "" &&
-    deliveryDate !== "" &&
+    receivedDate !== "" &&
     factoryDate !== "" &&
     invoiceNumber.trim() !== "" &&
     sizeOk &&
@@ -139,9 +139,9 @@ export function NewBagForm({
   return (
     <form onSubmit={handleSubmit} className="card space-y-6 rounded-sm p-6">
       <p className="text-xs text-paper/40">
-        Tous les champs ci-dessous sont obligatoires (sauf la photo). Le n° de série PK
-        est généré automatiquement. Le SKU et les autres informations (prix
-        d&apos;achat, notes...) pourront être complétés plus tard depuis la fiche du sac.
+        Tous les champs ci-dessous sont obligatoires (sauf le SKU PK, la photo et le lien Drive).
+        Le n° de série PK est généré automatiquement. Le SKU PK et les autres informations
+        (notes...) pourront être complétés plus tard depuis la fiche du sac.
       </p>
 
       {formError && <p className="text-sm text-red-400">Erreur : {formError}</p>}
@@ -161,7 +161,7 @@ export function NewBagForm({
         </Select>
       </FormRow>
 
-      <FormRow label="SKU a attribuer (optionnel)">
+      <FormRow label="SKU PK a attribuer (optionnel)">
         <Input
           name="sku"
           list="new-bag-sku-options"
@@ -176,7 +176,7 @@ export function NewBagForm({
         </datalist>
         <p className="mt-1 text-xs text-paper/40">
           Si renseigne, le sac devient directement un produit fini avec ses etapes de fabrication.
-          Sinon il reste en pieces detachees, en attente, et le SKU pourra etre attribue plus tard
+          Sinon il reste en pieces detachees, en attente, et le SKU PK pourra etre attribue plus tard
           depuis sa fiche.
         </p>
       </FormRow>
@@ -197,7 +197,7 @@ export function NewBagForm({
             ))}
           </Select>
         </FormRow>
-        <FormRow label="N° authentification fournisseur">
+        <FormRow label="SKU Fournisseur">
           <Input
             name="auth_number_supplier"
             required
@@ -209,13 +209,13 @@ export function NewBagForm({
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <FormRow label="Date de livraison">
+        <FormRow label="Date de réception">
           <Input
             type="date"
-            name="delivery_date"
+            name="received_date"
             required
-            value={deliveryDate}
-            onChange={(e) => setDeliveryDate(e.target.value)}
+            value={receivedDate}
+            onChange={(e) => setReceivedDate(e.target.value)}
           />
         </FormRow>
         <FormRow label="Date de fabrication (LV / Hermès)">
@@ -229,7 +229,7 @@ export function NewBagForm({
         </FormRow>
       </div>
 
-      <FormRow label="N° de facture">
+      <FormRow label="N° de facture fournisseur">
         <Input
           name="invoice_number"
           required
@@ -265,6 +265,12 @@ export function NewBagForm({
 
       <FormRow label="Photo (optionnel)">
         <PhotoPickerInline onChange={setPhotoFile} />
+        <p className="mb-1 mt-3 text-xs text-paper/40">ou un lien vers le Drive de la société</p>
+        <Input
+          type="url"
+          name="photos_link"
+          placeholder="https://drive.google.com/…"
+        />
       </FormRow>
 
       <Button type="submit" disabled={!canSubmit || isPending}>

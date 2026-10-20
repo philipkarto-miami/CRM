@@ -136,6 +136,10 @@ export interface Bag {
   sale_type: SaleType;
   current_phase: StagePhase;
   invoice_number: string | null;
+  // Date de reception du sac a l'atelier (saisie a la creation du sac).
+  received_date: string | null;
+  // Date d'expedition prevue, recopiee depuis la commande rattachee : c'est
+  // elle qui pilote les alertes de retard (pas received_date).
   delivery_date: string | null;
   // Recopie depuis orders.is_priority quand ce sac est rattache a une
   // commande prioritaire : passe devant les autres dans le kanban de

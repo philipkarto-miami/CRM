@@ -224,7 +224,7 @@ export default async function BagDetailPage({
               <FormRow label="N° de série (auto-généré)">
                 <Input value={typedBag.serial_number} disabled />
               </FormRow>
-              <FormRow label="SKU (voir carte « Attribution du SKU » ci-dessous)">
+              <FormRow label="SKU PK (voir carte « Attribution du SKU » ci-dessous)">
                 <Input value={typedBag.sku ?? "Non attribué"} disabled />
               </FormRow>
             </div>
@@ -264,21 +264,24 @@ export default async function BagDetailPage({
                   ))}
                 </Select>
               </FormRow>
-              <FormRow label="N° authentification fournisseur">
+              <FormRow label="SKU Fournisseur">
                 <Input name="auth_number_supplier" defaultValue={typedBag.auth_number_supplier ?? ""} />
               </FormRow>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <FormRow label="Date d'achat">
                 <Input type="date" name="purchase_date" defaultValue={typedBag.purchase_date ?? ""} />
+              </FormRow>
+              <FormRow label="Date de reception">
+                <Input type="date" name="received_date" defaultValue={typedBag.received_date ?? ""} />
               </FormRow>
               <FormRow label="Date fabrication LV/Hermes">
                 <Input type="date" name="factory_date" defaultValue={typedBag.factory_date ?? ""} />
               </FormRow>
             </div>
 
-            <FormRow label="Lien photos">
+            <FormRow label="Lien Drive (photos)">
               <Input name="photos_link" defaultValue={typedBag.photos_link ?? ""} />
             </FormRow>
 
@@ -287,7 +290,7 @@ export default async function BagDetailPage({
             </FormRow>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormRow label="N° de facture">
+              <FormRow label="N° de facture fournisseur">
                 <Input name="invoice_number" defaultValue={typedBag.invoice_number ?? ""} />
               </FormRow>
               <FormRow label="Date d'expedition prevue (commande)">

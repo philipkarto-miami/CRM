@@ -27,8 +27,11 @@ export async function createBag(
   const modelId = str(formData, "model_id");
   const supplierId = str(formData, "supplier_id");
   const authNumber = str(formData, "auth_number_supplier");
-  const deliveryDate = str(formData, "delivery_date");
+  const receivedDate = str(formData, "received_date");
   const factoryDate = str(formData, "factory_date");
+  // Lien optionnel vers le Drive de la societe (alternative/complement a une
+  // photo envoyee directement).
+  const photosLink = str(formData, "photos_link")?.trim() || null;
   const invoiceNumber = str(formData, "invoice_number");
   const sizeVerified = formData.get("size_verified") === "on";
   const canvasVerified = formData.get("canvas_verified") === "on";
@@ -44,7 +47,7 @@ export async function createBag(
     !modelId ||
     !supplierId ||
     !authNumber ||
-    !deliveryDate ||
+    !receivedDate ||
     !factoryDate ||
     !invoiceNumber ||
     !sizeVerified ||
@@ -77,7 +80,10 @@ export async function createBag(
     supplier_id: supplierId,
     auth_number_supplier: authNumber,
     factory_date: factoryDate,
-    delivery_date: deliveryDate,
+    // delivery_date (date d'expedition prevue) reste vide : elle vient de la
+    // commande rattachee, voir orders/actions.ts.
+    received_date: receivedDate,
+    photos_link: photosLink,
     invoice_number: invoiceNumber,
     sale_type: saleType,
     created_by: user?.id ?? null,
@@ -126,6 +132,7 @@ export async function updateBag(bagId: string, formData: FormData) {
     supplier_id: str(formData, "supplier_id") || null,
     auth_number_supplier: str(formData, "auth_number_supplier"),
     purchase_date: str(formData, "purchase_date"),
+    received_date: str(formData, "received_date"),
     factory_date: str(formData, "factory_date"),
     photos_link: str(formData, "photos_link"),
     invoice_number: str(formData, "invoice_number"),
