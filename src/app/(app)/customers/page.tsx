@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { deleteCustomer } from "./actions";
 import { PageHeader } from "@/components/PageHeader";
@@ -37,7 +38,11 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
           <tbody>
             {(customers as Customer[] | null)?.map((c) => (
               <tr key={c.id} className="border-b border-line/60 last:border-0">
-                <td className="px-4 py-3 text-paper/80">{c.full_name}</td>
+                <td className="px-4 py-3">
+                  <Link href={`/customers/${c.id}`} className="text-paper/80 hover:text-gold hover:underline">
+                    {c.full_name}
+                  </Link>
+                </td>
                 <td className="px-4 py-3 text-paper/60">{c.contact_name ?? "-"}</td>
                 <td className="px-4 py-3 text-paper/60">{c.email ?? "-"}</td>
                 <td className="px-4 py-3 text-paper/60">{c.phone ?? "-"}</td>
@@ -47,16 +52,27 @@ export default async function CustomersPage({ searchParams }: { searchParams: { 
                     ? ` (${c.payment_terms_percent}%)`
                     : ""}
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <form action={deleteCustomer.bind(null, c.id)}>
-                    <ConfirmSubmitButton
-                      confirmMessage={`Supprimer le client "${c.full_name}" ? Cette action est definitive.`}
-                      variant="ghost"
-                      className="!px-0 !py-0 text-xs text-danger hover:underline"
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-4">
+                    <Link href={`/customers/${c.id}`} className="text-xs text-gold hover:underline">
+                      Modifier
+                    </Link>
+                    <Link
+                      href={`/customers/${c.id}?tab=historique`}
+                      className="text-xs text-paper/60 hover:text-gold hover:underline"
                     >
-                      Supprimer
-                    </ConfirmSubmitButton>
-                  </form>
+                      Historique
+                    </Link>
+                    <form action={deleteCustomer.bind(null, c.id)}>
+                      <ConfirmSubmitButton
+                        confirmMessage={`Supprimer le client "${c.full_name}" ? Cette action est definitive.`}
+                        variant="ghost"
+                        className="!px-0 !py-0 text-xs text-danger hover:underline"
+                      >
+                        Supprimer
+                      </ConfirmSubmitButton>
+                    </form>
+                  </div>
                 </td>
               </tr>
             ))}
