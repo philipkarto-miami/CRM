@@ -7,6 +7,7 @@ import {
   ATELIER_PHASE_SHORT,
   fmtClock,
   fmtHm,
+  specLine,
   stageSeconds,
   type BagView,
   type StageView,
@@ -63,7 +64,9 @@ export default function StagesScreen({ initial }: { initial: BagView }) {
               {bag.modelLabel}
               {bag.sku ? ` · ${bag.sku}` : " · Aucun code attribué"}
               {bag.edition ? ` · ${bag.edition}` : ""}
+              {bag.commercialEdition ? ` · ${bag.commercialEdition}` : ""}
             </div>
+            {specLine(bag) && <div className="af-meta">{specLine(bag)}</div>}
             {bag.deliveryShort && <div className="af-meta">Livraison prévue le {bag.deliveryShort}</div>}
             <div>
               <Link href={`/bags/${bag.id}?view=infos`} className="af-btn af-btn--outline" style={{ minHeight: 40, padding: "8px 16px", fontSize: 11 }}>

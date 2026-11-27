@@ -1,13 +1,16 @@
 // Generation des codes PK (SKU) a partir d'un design, de couleurs et de modeles.
 //
-// Forme d'un code : "PK" + acronyme du design + marqueur de famille + lettre(s)
-// couleur + taille
-//   - marqueur de famille : "NF" pour Neverfull, "H" pour Birkin, rien pour
-//     Speedy et Keepall (voir FAMILY_MARKERS)
+// Forme d'un code (convention du line sheet 2027) : "PK" + marqueur de famille
+// + acronyme du design + lettre(s) couleur + taille
+//   - marqueur de famille, juste apres PK : "NF" pour Neverfull, "H" pour Birkin,
+//     rien pour Speedy et Keepall (voir FAMILY_MARKERS)
 //   - taille = nombre pour Speedy / Keepall / Birkin (25, 30, 35, 40, 45...)
 //   - taille = les deux lettres pour Neverfull (PM, MM, GM)
-//   ex : design POP, orange : Speedy 35 -> PKPOPO35 ; Neverfull MM -> PKPOPNFOMM ;
-//        Birkin 30 -> PKPOPHO30
+//   ex : design POP, orange : Speedy 35 -> PKPOPO35 ; Neverfull MM -> PKNFPOPOMM ;
+//        Birkin 30 -> PKHPOPO30
+// Les codes crees avant ce changement (marqueur place apres le design, ex :
+// PKPOPNFOMM) restent valides : un code existant est reconnu par son modele et
+// sa couleur, jamais par son libelle.
 //
 // Ce module est partage entre le formulaire (apercu en direct) et l'action
 // serveur (creation reelle) pour que les deux calculent toujours les memes codes.
@@ -45,8 +48,8 @@ export function sizeCode(baseSize: string | null | undefined): string {
   return (baseSize ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-// Lettres ajoutees entre le design et la couleur selon la famille du modele
-// (cherchees dans le nom du modele, sans tenir compte de la casse).
+// Lettres ajoutees juste apres "PK" selon la famille du modele (cherchees dans
+// le nom du modele, sans tenir compte de la casse).
 const FAMILY_MARKERS: { match: string; marker: string }[] = [
   { match: "neverfull", marker: "NF" },
   { match: "birkin", marker: "H" },
@@ -55,6 +58,28 @@ const FAMILY_MARKERS: { match: string; marker: string }[] = [
 export function familyMarker(modelName: string | null | undefined): string {
   const name = (modelName ?? "").toLowerCase();
   return FAMILY_MARKERS.find((f) => name.includes(f.match))?.marker ?? "";
+}
+
+// ---------------------------------------------------------------------------
+// Anciens codes Neverfull (catalogue d'origine) : PKN + design + couleur +
+// taille en UNE lettre (P = PM, M = MM, G = GM). Ex : PKNSQGM = Square Painted,
+// vert, MM. Sans cette regle, la fin "GM" de PKNSQGM etait lue comme la taille GM
+// alors que la taille est M (MM) et que le G est la couleur. Liste fermee des
+// designs concernes : PKNSTR et PKNBLANK n'ont pas de couleur.
+// ---------------------------------------------------------------------------
+const LEGACY_NEVERFULL = /^PKN(?:(SQ|STAR|P)([BGOPY])|(STR|BLANK))([PMG])$/;
+const LEGACY_NEVERFULL_SIZE: Record<string, string> = { P: "PM", M: "MM", G: "GM" };
+
+export function parseLegacyNeverfull(
+  sku: string
+): { design: string; colorCode: string | null; size: string } | null {
+  const m = LEGACY_NEVERFULL.exec(sku.trim().toUpperCase());
+  if (!m) return null;
+  return {
+    design: `N${m[1] ?? m[3]}`,
+    colorCode: m[2] ?? null,
+    size: LEGACY_NEVERFULL_SIZE[m[4]],
+  };
 }
 
 export type SkuModelInput = { id: string; name: string; label: string; baseSize: string | null };
@@ -108,7 +133,7 @@ export function buildSkuCode(
 ): string | null {
   const size = sizeCode(baseSize);
   if (!design || !size) return null;
-  return `PK${design}${familyMarker(modelName)}${colorCode ?? ""}${size}`;
+  return `PK${familyMarker(modelName)}${design}${colorCode ?? ""}${size}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -210,8 +235,10 @@ function sizeFromText(text: string | null | undefined): string | null {
   return found && found.length > 0 ? found[found.length - 1].toUpperCase() : null;
 }
 
-// Taille en fin de code PK (PKSBLK30 -> 30, PKNSQPM -> PM).
+// Taille en fin de code PK (PKSBLK30 -> 30, PKNFRAINMM -> MM, PKNSQGM -> MM).
 function sizeFromCode(sku: string): string | null {
+  const legacy = parseLegacyNeverfull(sku);
+  if (legacy) return legacy.size;
   const m = /(\d+|PM|MM|GM)$/i.exec(sku.trim());
   return m ? m[1].toUpperCase() : null;
 }

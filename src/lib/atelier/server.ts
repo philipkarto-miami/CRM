@@ -4,6 +4,9 @@
 
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { phaseRank, sortPhaseStages } from "@/lib/stages";
+import { MATERIAL_LABEL, commercialEditionFor, executionInfo } from "@/lib/execution";
+import { LINE_SHEET_BY_SKU } from "@/lib/linesheet";
+import { dimensionsFromLabel, formatDimensions, referenceDimensions } from "@/lib/dimensions";
 import {
   ATELIER_PHASES,
   MIGRATION_0034_MESSAGE,
@@ -83,6 +86,9 @@ export interface BagContext {
   progress: ProgressRow[];
   runs: RunRow[];
   edition: string | null;
+  // Execution et edition commerciale du code PK (migration 0035, null sinon).
+  execution: string | null;
+  commercialEdition: string | null;
   photoFront: string | null;
   photoBack: string | null;
 }
@@ -127,6 +133,8 @@ export async function loadBagContext(
   if (runsRes.error) return { ctx: null, error: friendlyError(runsRes.error.message) };
 
   let edition: string | null = null;
+  let execution: string | null = null;
+  let commercialEdition: string | null = null;
   let photoFront: string | null = null;
   let photoBack: string | null = null;
   if (bag.sku) {
@@ -146,12 +154,29 @@ export async function loadBagContext(
     }
   }
 
+  // Colonnes de la migration 0035 : lues a part, l'erreur (migration absente) est
+  // ignoree et le line sheet prend le relais pour l'execution.
+  if (bag.sku) {
+    const { data: line } = await supabase
+      .from("sku_catalog")
+      .select("execution, commercial_edition")
+      .eq("sku", bag.sku)
+      .maybeSingle();
+    execution = (line?.execution as string | null | undefined) ?? null;
+    commercialEdition = (line?.commercial_edition as string | null | undefined) ?? null;
+  }
+  const sheet = bag.sku ? LINE_SHEET_BY_SKU.get(bag.sku as string) : undefined;
+  execution = execution ?? sheet?.execution ?? null;
+  commercialEdition = commercialEdition ?? sheet?.edition ?? null;
+
   return {
     ctx: {
       bag: bag as BagRow,
       progress: ((progressRes.data ?? []) as unknown as ProgressRow[]).filter((p) => p.production_stages),
       runs: (runsRes.data ?? []) as RunRow[],
       edition,
+      execution,
+      commercialEdition,
       photoFront,
       photoBack,
     },
@@ -250,12 +275,20 @@ function buildBagInfo(ctx: BagContext): BagInfo {
   const daysLate = isLate
     ? Math.round((Date.parse(today) - Date.parse(bag.delivery_date as string)) / 86_400_000)
     : 0;
+  const info = executionInfo(ctx.execution);
+  const sheet = bag.sku ? LINE_SHEET_BY_SKU.get(bag.sku) : undefined;
+  const dims =
+    dimensionsFromLabel(bag.model_label) ?? (sheet ? referenceDimensions(sheet.silhouette, sheet.size) : null);
   return {
     id: bag.id,
     serial: bag.serial_number,
     modelLabel: bag.model_label,
     sku: bag.sku,
     edition: ctx.edition,
+    commercialEdition: commercialEditionFor(ctx.commercialEdition, ctx.edition),
+    executionLabel: info?.label ?? null,
+    materialLabel: info ? MATERIAL_LABEL[info.material] : null,
+    dimensions: dims ? formatDimensions(dims) : null,
     phase: bag.current_phase,
     isPriority: bag.is_priority,
     deliveryShort: bag.delivery_date

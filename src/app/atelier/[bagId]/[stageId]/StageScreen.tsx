@@ -9,6 +9,7 @@ import {
   fmtClock,
   fmtHm,
   pauseLabel,
+  specLine,
   stageSeconds,
   type BagView,
   type PauseReason,
@@ -268,7 +269,8 @@ export default function StageScreen({ initial }: { initial: StageDetailView }) {
                 {bag.sku ? (
                   <>
                     {bag.sku}
-                    {bag.edition ? ` · ${bag.edition}` : ""} — appuie sur une photo pour l&apos;agrandir.
+                    {bag.edition ? ` · ${bag.edition}` : ""}
+                    {specLine(bag) ? ` · ${specLine(bag)}` : ""} — appuie sur une photo pour l&apos;agrandir.
                   </>
                 ) : (
                   "Aucun code PK attribué à ce sac pour l'instant."

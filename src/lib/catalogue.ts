@@ -1,5 +1,7 @@
 // Aides communes aux pages du catalogue (cote serveur).
 
+import { parseLegacyNeverfull } from "./sku";
+
 // L'API Supabase plafonne chaque requete a 1000 lignes : on lit le catalogue
 // par pages de 1000 jusqu'a epuisement. L'erreur eventuelle est renvoyee (et
 // non avalee) pour que la page puisse l'afficher ou se rabattre sur un secours.
@@ -18,8 +20,12 @@ export async function fetchAllRows<T>(
 }
 
 // Design d'un code sans colonne `design` renseignee (secours) : le code sans
-// "PK" ni taille (25, 30... ou PM, MM, GM). Meme regle que la migration 0029.
+// "PK" ni taille (25, 30... ou PM, MM, GM). Meme regle que la migration 0029,
+// sauf les anciens codes Neverfull (taille en une lettre, voir sku.ts) dont le
+// design est lu comme dans la migration 0035 (PKNSQGM -> NSQ).
 export function deriveDesign(sku: string): string {
+  const legacy = parseLegacyNeverfull(sku);
+  if (legacy) return legacy.design;
   const stem = (sku.startsWith("PK") ? sku.slice(2) : sku).replace(/(\d+|PM|MM|GM)$/, "");
   return stem || sku;
 }

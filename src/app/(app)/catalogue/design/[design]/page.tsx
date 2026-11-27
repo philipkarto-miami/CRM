@@ -6,6 +6,7 @@ import { SavedToast } from "@/components/SavedToast";
 import { MIGRATION_0029_MESSAGE, deriveDesign, fetchAllRows } from "@/lib/catalogue";
 import { COLOR_NONE, photoGroupOf, type DesignRow } from "@/lib/sku";
 import { toRecipeSteps } from "@/lib/stages";
+import { isExecutionKey, type ExecutionKey } from "@/lib/execution";
 
 type CatalogRow = {
   sku: string;
@@ -148,6 +149,27 @@ export default async function SkuDesignPage({
   // (c'est aussi celle que recopie l'enregistrement pour les nouveaux codes).
   const referenceRecipe = designCodes[0].steps ?? {};
 
+  // Execution / edition commerciale / plafond (migration 0035) : lus a part pour
+  // que la fiche s'ouvre meme si la migration n'est pas encore appliquee.
+  const { data: lineData } = await supabase
+    .from("sku_catalog")
+    .select("sku, execution, commercial_edition, max_units")
+    .in("sku", codes);
+  const lineRows = (lineData ?? []) as {
+    execution: string | null;
+    commercial_edition: string | null;
+    max_units: number | null;
+  }[];
+  const mostCommon = (values: (string | null)[]): string | null => {
+    const counts = new Map<string, number>();
+    for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  };
+  const commonExecution = mostCommon(lineRows.map((r) => r.execution));
+  const execution: ExecutionKey | null = isExecutionKey(commonExecution) ? commonExecution : null;
+  const commercialEdition = mostCommon(lineRows.map((r) => r.commercial_edition));
+  const maxUnits = lineRows.reduce<number | null>((m, r) => (r.max_units && (!m || r.max_units > m) ? r.max_units : m), null);
+
   // Usage des codes (pour le renommage) : sacs et commandes concernes.
   const [{ count: bagsCount }, { count: ordersCount }] = await Promise.all([
     supabase.from("bags").select("id", { count: "exact", head: true }).in("sku", codes),
@@ -178,6 +200,9 @@ export default async function SkuDesignPage({
         recipes={recipes}
         divergentColors={divergentColors}
         referenceRecipe={referenceRecipe}
+        execution={execution}
+        commercialEdition={commercialEdition}
+        maxUnits={maxUnits}
         bagsCount={bagsCount ?? 0}
         ordersCount={ordersCount ?? 0}
         error={searchParams?.error}

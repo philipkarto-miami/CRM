@@ -4,13 +4,18 @@ import { PageHeader } from "@/components/PageHeader";
 import { LinkButton } from "@/components/ui/Button";
 import { SavedToast } from "@/components/SavedToast";
 import { MIGRATION_0029_MESSAGE, deriveDesign, fetchAllRows } from "@/lib/catalogue";
+import { commercialEditionFor, executionLabel } from "@/lib/execution";
 
 type CatalogRow = { sku: string; design?: string | null; edition: string | null; photo_path: string | null };
+
+type LineRow = { sku: string; commercial_edition: string | null; execution: string | null };
 
 type DesignCard = {
   design: string;
   codes: string[];
   edition: string | null;
+  commercial: string | null;
+  execution: string | null;
   photoPath: string | null;
 };
 
@@ -34,12 +39,23 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
     ));
   }
 
+  // Edition commerciale et execution (migration 0035) : lues a part pour que le
+  // catalogue s'affiche meme si la migration n'est pas encore appliquee.
+  const { rows: lineRows } = await fetchAllRows<LineRow>((from, to) =>
+    supabase.from("sku_catalog").select("sku, commercial_edition, execution").order("sku").range(from, to)
+  );
+  const lineBySku = new Map(lineRows.map((r) => [r.sku, r]));
+
   const byDesign = new Map<string, DesignCard>();
   for (const row of rows) {
     const design = row.design ?? deriveDesign(row.sku);
-    const card = byDesign.get(design) ?? { design, codes: [], edition: null, photoPath: null };
+    const card =
+      byDesign.get(design) ?? { design, codes: [], edition: null, commercial: null, execution: null, photoPath: null };
     card.codes.push(row.sku);
     card.edition = card.edition ?? row.edition;
+    const line = lineBySku.get(row.sku);
+    card.commercial = card.commercial ?? line?.commercial_edition ?? null;
+    card.execution = card.execution ?? line?.execution ?? null;
     card.photoPath = card.photoPath ?? row.photo_path;
     byDesign.set(design, card);
   }
@@ -77,7 +93,14 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
       <PageHeader
         eyebrow="Catalogue"
         title="Codes PK"
-        action={<LinkButton href="/catalogue/new">+ Nouveau design</LinkButton>}
+        action={
+          <div className="flex gap-2">
+            <LinkButton href="/catalogue/gamme" variant="secondary">
+              Gamme 2027
+            </LinkButton>
+            <LinkButton href="/catalogue/new">+ Nouveau design</LinkButton>
+          </div>
+        }
       />
 
       {error && (
@@ -127,6 +150,13 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
                   {card.codes.length} code{card.codes.length > 1 ? "s" : ""}
                   {card.edition ? ` · ${card.edition}` : ""}
                 </p>
+                {(commercialEditionFor(card.commercial, card.edition) || card.execution) && (
+                  <p className="text-[11px] text-paper/45">
+                    {[commercialEditionFor(card.commercial, card.edition), executionLabel(card.execution)]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
               </Link>
               {showMatches && (
                 <div className="flex flex-wrap gap-1 border-t border-line/60 pt-2">

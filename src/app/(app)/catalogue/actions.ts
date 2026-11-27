@@ -15,6 +15,7 @@ import {
   type DesignModel,
   type SkuModelInput,
 } from "@/lib/sku";
+import { COMMERCIAL_EDITIONS, isExecutionKey } from "@/lib/execution";
 import type { StagePhase } from "@/types/database";
 
 function str(formData: FormData, key: string) {
@@ -60,6 +61,23 @@ function readColorRecipes(formData: FormData, colorKeys: string[]): Map<string, 
     target[match[2]] = Number.isFinite(n) && raw === String(n) ? n : raw;
   }
   return recipes;
+}
+
+const MIGRATION_0035_MESSAGE =
+  "La migration 0035_ligne_collection.sql n'est pas encore appliquee dans Supabase : lance-la dans l'editeur SQL, puis reessaie.";
+
+// Champs issus du line sheet (migration 0035) : execution, edition commerciale et
+// plafond de production. Ils ne sont envoyes que s'ils sont renseignes, pour que
+// le formulaire reste utilisable tant que la migration n'est pas appliquee.
+function readLineFields(formData: FormData): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  const execution = String(formData.get("execution") ?? "");
+  if (isExecutionKey(execution)) out.execution = execution;
+  const commercial = String(formData.get("commercial_edition") ?? "");
+  if ((COMMERCIAL_EDITIONS as readonly string[]).includes(commercial)) out.commercial_edition = commercial;
+  const cap = Number(String(formData.get("max_units") ?? "").trim());
+  if (Number.isInteger(cap) && cap > 0) out.max_units = cap;
+  return out;
 }
 
 // Cree une nouvelle etape de fabrication (globale, disponible pour tous les
@@ -210,9 +228,11 @@ export async function createSkuCatalogBatch(formData: FormData): Promise<void> {
   const steps = readSteps(formData);
   const edition = str(formData, "edition");
   const description = str(formData, "description");
+  const extra = readLineFields(formData);
 
   const { error } = await supabase.from("sku_catalog").insert(
     toCreate.map((v) => ({
+      ...extra,
       sku: v.sku,
       // Cle de regroupement en fiche + couleur : voir migration 0029.
       design,
@@ -227,9 +247,11 @@ export async function createSkuCatalogBatch(formData: FormData): Promise<void> {
   );
   if (error) {
     failNewSku(
-      /design|color_code/.test(error.message)
-        ? "La migration 0029_fiches_design_catalogue.sql n'est pas encore appliquee dans Supabase : lance-la dans l'editeur SQL, puis reessaie."
-        : error.message
+      /execution|commercial_edition|max_units/.test(error.message)
+        ? MIGRATION_0035_MESSAGE
+        : /design|color_code/.test(error.message)
+          ? "La migration 0029_fiches_design_catalogue.sql n'est pas encore appliquee dans Supabase : lance-la dans l'editeur SQL, puis reessaie."
+          : error.message
     );
   }
 
@@ -377,6 +399,10 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
           steps: reference.steps ?? {},
           photo_path: photos?.front ?? null,
           photo_path_back: photos?.back ?? null,
+          // Champs du line sheet (migration 0035) : recopies seulement s'ils existent.
+          ...(reference.execution ? { execution: reference.execution } : {}),
+          ...(reference.commercial_edition ? { commercial_edition: reference.commercial_edition } : {}),
+          ...(reference.max_units ? { max_units: reference.max_units } : {}),
         };
       })
     );
@@ -445,9 +471,30 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
     recipesSaved += 1;
   }
 
+  // Execution, edition commerciale et plafond : propres au design entier. Envoyes
+  // seulement quand l'ecran les a modifies (line_touched), pour que la fiche reste
+  // enregistrable tant que la migration 0035 n'est pas appliquee.
+  let lineSaved = false;
+  if (formData.get("line_touched") === "1") {
+    const execution = String(formData.get("execution") ?? "");
+    const commercial = String(formData.get("commercial_edition") ?? "");
+    const cap = Number(String(formData.get("max_units") ?? "").trim());
+    const { error } = await supabase
+      .from("sku_catalog")
+      .update({
+        execution: isExecutionKey(execution) ? execution : null,
+        commercial_edition: (COMMERCIAL_EDITIONS as readonly string[]).includes(commercial) ? commercial : null,
+        max_units: Number.isInteger(cap) && cap > 0 ? cap : null,
+      })
+      .eq("design", design);
+    if (error) fail(/execution|commercial_edition|max_units/.test(error.message) ? MIGRATION_0035_MESSAGE : error.message);
+    lineSaved = true;
+  }
+
   const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
   const parts: string[] = [];
   if (plan.create.length > 0) parts.push(plural(plan.create.length, "code cree", "codes crees"));
+  if (lineSaved) parts.push("execution et edition enregistrees");
   if (removed > 0) parts.push(plural(removed, "code supprime", "codes supprimes"));
   if (photosSaved > 0) parts.push(plural(photosSaved, "photo enregistree", "photos enregistrees"));
   if (recipesSaved > 0) parts.push(plural(recipesSaved, "recette enregistree", "recettes enregistrees"));

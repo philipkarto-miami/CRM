@@ -279,6 +279,31 @@ export async function assignSku(
   }
   const catalogEntry = resolved.entry;
 
+  // Plafond de production (capsules / editions limitees, migration 0035) : on
+  // refuse un sac de plus quand le nombre de sacs deja attribues a ce code atteint
+  // le plafond. Lu a part : sans la migration, la colonne n'existe pas et rien
+  // n'est bloque.
+  const { data: capRow } = await supabase
+    .from("sku_catalog")
+    .select("max_units")
+    .eq("sku", catalogEntry.sku)
+    .maybeSingle();
+  const cap = (capRow?.max_units as number | null | undefined) ?? null;
+  if (cap) {
+    const { count } = await supabase
+      .from("bags")
+      .select("id", { count: "exact", head: true })
+      .eq("sku", catalogEntry.sku)
+      .neq("id", bagId);
+    if ((count ?? 0) >= cap) {
+      return {
+        error: `Plafond atteint : ${catalogEntry.sku} est limité à ${cap} pièce${cap > 1 ? "s" : ""} et ${count} sac${
+          (count ?? 0) > 1 ? "s l'utilisent" : " l'utilise"
+        } déjà.`,
+      };
+    }
+  }
+
   const steps = (catalogEntry.steps ?? {}) as Record<string, number | string>;
 
   // On pose d'abord le SKU sur le sac (avant de toucher aux etapes) : le

@@ -3,9 +3,18 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { createSkuCatalogBatch } from "@/app/(app)/catalogue/actions";
-import { FormRow, Input, Textarea } from "@/components/ui/Field";
+import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
 import { SKU_COLORS, generateSkuVariants, normalizeDesign } from "@/lib/sku";
+import {
+  COMMERCIAL_EDITIONS,
+  EXECUTIONS,
+  executionInfo,
+  isExecutionKey,
+  recipeWarnings,
+  templateSteps,
+  type ExecutionKey,
+} from "@/lib/execution";
 import type { RecipeStepOption } from "@/lib/stages";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +41,20 @@ export function NewSkuBatchForm({
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const [selectedColors, setSelectedColors] = useState<Set<string>>(new Set());
   const [submitting, setSubmitting] = useState(false);
+  const [execution, setExecution] = useState<ExecutionKey | "">("");
+  const [commercial, setCommercial] = useState("");
+  const [recipeCodes, setRecipeCodes] = useState<string[]>([]);
+
+  const stepName = useMemo(() => new Map(recipeSteps.map((s) => [s.code, s.name])), [recipeSteps]);
+  const warnings = useMemo(
+    () => recipeWarnings(execution, recipeCodes, (code) => stepName.get(code) ?? code),
+    [execution, recipeCodes, stepName]
+  );
+  // Recette type : seules les etapes qui existent vraiment dans le CRM.
+  const initialRecipe = useMemo(() => {
+    const tpl = templateSteps(execution);
+    return Object.fromEntries(Object.entries(tpl).filter(([code]) => stepName.has(code)));
+  }, [execution, stepName]);
 
   const existing = useMemo(() => new Set(existingSkus), [existingSkus]);
 
@@ -272,16 +295,66 @@ export function NewSkuBatchForm({
             )}
             <p className="mt-3 text-[11px] text-paper/50">
               Format : PK + design + couleur + taille (25, 30, 35, 40… ou PM, MM, GM pour le Neverfull). Neverfull :
-              « NF » et Birkin : « H » s&apos;ajoutent entre le design et la couleur (ex : PKPOPNFOMM, PKPOPHO30).
+              « NF » et Birkin : « H » se placent juste après PK (ex : PKNFPOPOMM, PKHPOPO30).
               Les photos se déposent ensuite sur chaque code, couleur par couleur.
             </p>
           </div>
         </div>
 
         <div>
-          <div className="card rounded-sm p-5">
-            <SkuStepsEditor availableSteps={recipeSteps} initialSteps={{}} />
+          <div className="card mb-4 rounded-sm p-5">
+            <h3 className="mb-1 font-serif text-[17px] text-paper">Exécution</h3>
+            <p className="mb-3 text-xs text-paper/55">
+              Comment le sac est décoré. Choisir une exécution pré-remplit la recette ci-dessous (modifiable).
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {EXECUTIONS.map((e) => (
+                <button
+                  key={e.key}
+                  type="button"
+                  onClick={() => setExecution(execution === e.key ? "" : e.key)}
+                  className={cn(chipBase, execution === e.key ? chipOn : chipOff)}
+                >
+                  {e.label}
+                </button>
+              ))}
+            </div>
+            {execution && <p className="mt-2.5 text-xs text-paper/55">{executionInfo(execution)?.hint}</p>}
+            <input type="hidden" name="execution" value={execution} />
+
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <FormRow label="Édition commerciale">
+                <Select name="commercial_edition" value={commercial} onChange={(e) => setCommercial(e.target.value)}>
+                  <option value="">—</option>
+                  {COMMERCIAL_EDITIONS.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </Select>
+              </FormRow>
+              <FormRow label="Plafond de production">
+                <Input name="max_units" type="number" min={1} step={1} placeholder="Illimité" />
+              </FormRow>
+            </div>
           </div>
+
+          <div className="card rounded-sm p-5">
+            <SkuStepsEditor
+              key={isExecutionKey(execution) ? execution : "libre"}
+              availableSteps={recipeSteps}
+              initialSteps={initialRecipe}
+              onCodesChange={setRecipeCodes}
+            />
+          </div>
+          {warnings.length > 0 && (
+            <div className="mt-3 rounded-sm border border-gold/40 bg-gold/10 p-3 text-xs text-paper/80">
+              {warnings.map((w) => (
+                <p key={w}>⚠ {w}</p>
+              ))}
+              <p className="mt-1 text-paper/55">Avertissement seulement : tu peux créer les codes tel quel.</p>
+            </div>
+          )}
           <p className="mt-3 text-xs text-paper/55">
             Cette recette s&apos;applique à tous les codes créés. Elle reste modifiable code par code ensuite. Les
             autres phases sont fixes ; les bandes sont posées d&apos;office sur les Speedy 35+ et les Keepall.

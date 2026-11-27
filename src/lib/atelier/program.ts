@@ -78,6 +78,12 @@ export interface BagInfo {
   modelLabel: string;
   sku: string | null;
   edition: string | null;
+  // Fiche technique (line sheet 2027) : edition commerciale, execution, matiere,
+  // dimensions de reference. Null quand l'information n'est pas connue.
+  commercialEdition: string | null;
+  executionLabel: string | null;
+  materialLabel: string | null;
+  dimensions: string | null;
   phase: StagePhase;
   isPriority: boolean;
   deliveryShort: string | null;
@@ -158,4 +164,9 @@ export function stageIcon(name: string): string {
   if (/sous-trait|soustrait|atelier ext/.test(n)) return "arrowRight";
   if (/couture|assembl|montage|finition/.test(n)) return "cog";
   return "clipboard";
+}
+
+/** "Peint + brodé · Toile huilée · 30 × 21 × 17 cm" (vide si rien n'est connu). */
+export function specLine(bag: Pick<BagInfo, "executionLabel" | "materialLabel" | "dimensions">): string {
+  return [bag.executionLabel, bag.materialLabel, bag.dimensions].filter(Boolean).join(" · ");
 }

@@ -6,6 +6,15 @@ import { saveSkuDesign } from "@/app/(app)/catalogue/actions";
 import { PhotoDropzone } from "@/components/PhotoDropzone";
 import { RenameDesignForm } from "@/components/RenameDesignForm";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
+import { FormRow, Input, Select } from "@/components/ui/Field";
+import {
+  COMMERCIAL_EDITIONS,
+  EXECUTIONS,
+  executionInfo,
+  recipeWarnings,
+  templateSteps,
+  type ExecutionKey,
+} from "@/lib/execution";
 import {
   COLOR_NONE,
   PHOTO_GROUPS,
@@ -37,6 +46,9 @@ export function SkuDesignForm({
   recipes,
   divergentColors,
   referenceRecipe,
+  execution: initialExecution,
+  commercialEdition: initialCommercial,
+  maxUnits: initialMaxUnits,
   bagsCount,
   ordersCount,
   error,
@@ -56,6 +68,10 @@ export function SkuDesignForm({
   recipes: Record<string, Recipe>;
   divergentColors: string[];
   referenceRecipe: Recipe;
+  // Execution, edition commerciale et plafond du design (line sheet, migration 0035).
+  execution: ExecutionKey | null;
+  commercialEdition: string | null;
+  maxUnits: number | null;
   bagsCount: number;
   ordersCount: number;
   error?: string;
@@ -73,6 +89,14 @@ export function SkuDesignForm({
   const [recipeTouched, setRecipeTouched] = useState<Set<string>>(() => new Set());
   const [activeColor, setActiveColor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [execution, setExecution] = useState<ExecutionKey | "">(initialExecution ?? "");
+  const [commercial, setCommercial] = useState(initialCommercial ?? "");
+  const [maxUnits, setMaxUnits] = useState(initialMaxUnits ? String(initialMaxUnits) : "");
+  const [lineTouched, setLineTouched] = useState(false);
+  // Etapes cochees de chaque couleur (pour comparer a l'execution) et recette
+  // type appliquee a la main (numero d'application : remonte l'editeur).
+  const [recipeCodes, setRecipeCodes] = useState<Record<string, string[]>>({});
+  const [templateNonce, setTemplateNonce] = useState<Record<string, number>>({});
 
   const allSkuSet = useMemo(() => new Set(allSkus), [allSkus]);
 
@@ -137,8 +161,25 @@ export function SkuDesignForm({
     setRecipeTouched((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
   }
 
+  const stepName = useMemo(() => new Map(stepOptions.map((s) => [s.code, s.name])), [stepOptions]);
+  const templateRecipe = useMemo(
+    () => Object.fromEntries(Object.entries(templateSteps(execution)).filter(([code]) => stepName.has(code))),
+    [execution, stepName]
+  );
+  function setCodes(key: string, codes: string[]) {
+    setRecipeCodes((prev) => (prev[key]?.join("|") === codes.join("|") ? prev : { ...prev, [key]: codes }));
+  }
+  function applyTemplate(key: string) {
+    setTemplateNonce((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+    markRecipe(key);
+  }
+
   const hasChanges =
-    plan.create.length > 0 || plan.remove.length > 0 || photosPicked > 0 || touchedRecipes.length > 0;
+    plan.create.length > 0 ||
+    plan.remove.length > 0 ||
+    photosPicked > 0 ||
+    touchedRecipes.length > 0 ||
+    lineTouched;
   const canSubmit = hasChanges && selectedModels.size > 0 && selectedColors.size > 0 && !submitting;
 
   function toggle(set: Set<string>, value: string): Set<string> {
@@ -297,6 +338,69 @@ export function SkuDesignForm({
 
           <div className="space-y-6">
             <div className="card rounded-sm p-5">
+              <h3 className="mb-1 font-serif text-[17px] text-paper">Exécution et édition</h3>
+              <p className="mb-3 text-xs text-paper/55">
+                Valable pour tout le design. L&apos;exécution sert de repère : l&apos;écran prévient si une recette ne lui
+                correspond pas, sans jamais bloquer.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {EXECUTIONS.map((e) => (
+                  <button
+                    key={e.key}
+                    type="button"
+                    onClick={() => {
+                      setExecution(execution === e.key ? "" : e.key);
+                      setLineTouched(true);
+                    }}
+                    className={cn(chipBase, execution === e.key ? chipOn : chipOff)}
+                  >
+                    {e.label}
+                  </button>
+                ))}
+              </div>
+              {execution && <p className="mt-2.5 text-xs text-paper/55">{executionInfo(execution)?.hint}</p>}
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormRow label="Édition commerciale">
+                  <Select
+                    value={commercial}
+                    onChange={(e) => {
+                      setCommercial(e.target.value);
+                      setLineTouched(true);
+                    }}
+                  >
+                    <option value="">—</option>
+                    {COMMERCIAL_EDITIONS.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                </FormRow>
+                <FormRow label="Plafond de production">
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    placeholder="Illimité"
+                    value={maxUnits}
+                    onChange={(e) => {
+                      setMaxUnits(e.target.value);
+                      setLineTouched(true);
+                    }}
+                  />
+                </FormRow>
+              </div>
+              {lineTouched && (
+                <>
+                  <input type="hidden" name="line_touched" value="1" />
+                  <input type="hidden" name="execution" value={execution} />
+                  <input type="hidden" name="commercial_edition" value={commercial} />
+                  <input type="hidden" name="max_units" value={maxUnits} />
+                </>
+              )}
+            </div>
+
+            <div className="card rounded-sm p-5">
               <h3 className="mb-1 font-serif text-[17px] text-paper">Recette de fabrication</h3>
               <p className="mb-3.5 text-xs text-paper/55">
                 Une recette par couleur, commune à tous les modèles et toutes les tailles du design : seule la couleur
@@ -350,13 +454,33 @@ export function SkuDesignForm({
                           )}
                         </div>
                       )}
+                      {execution && (
+                        <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                          {recipeWarnings(execution, recipeCodes[slot.key] ?? [], (c) => stepName.get(c) ?? c).map((w) => (
+                            <span key={w} className="text-gold">
+                              ⚠ {w}
+                            </span>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => applyTemplate(slot.key)}
+                            className="text-paper/60 underline underline-offset-2 hover:text-gold"
+                          >
+                            Recette type « {executionInfo(execution)?.label} »
+                          </button>
+                        </div>
+                      )}
                       <SkuStepsEditor
+                        key={`${slot.key}-${templateNonce[slot.key] ?? 0}`}
                         fieldPrefix={`recipe__${slot.key}__`}
                         title={`Recette — ${slot.label}`}
                         description="L'ordre ci-dessous est celui appliqué à chaque sac de cette couleur."
                         availableSteps={stepOptions}
-                        initialSteps={recipes[slot.key] ?? referenceRecipe}
+                        initialSteps={
+                          templateNonce[slot.key] ? templateRecipe : (recipes[slot.key] ?? referenceRecipe)
+                        }
                         onDirty={() => markRecipe(slot.key)}
+                        onCodesChange={(codes) => setCodes(slot.key, codes)}
                       />
                       {recipeTouched.has(slot.key) && (
                         <input type="hidden" name={`recipe_touched__${slot.key}`} value="1" />

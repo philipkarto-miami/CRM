@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createCustomStep } from "@/app/(app)/catalogue/actions";
 import { Input } from "@/components/ui/Field";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
@@ -16,6 +16,7 @@ export function SkuStepsEditor({
   title = "Recette de fabrication",
   description = "L'ordre ci-dessous est celui applique a chaque sac qui recoit ce SKU.",
   onDirty,
+  onCodesChange,
 }: {
   availableSteps: StepOption[];
   initialSteps: Record<string, number | string>;
@@ -27,6 +28,9 @@ export function SkuStepsEditor({
   description?: string;
   // Appele a chaque modification (ajout, retrait, ordre, note).
   onDirty?: () => void;
+  // Etapes cochees (codes, dans l'ordre), appele au montage puis a chaque
+  // changement : permet a l'ecran de comparer la recette a l'execution du sac.
+  onCodesChange?: (codes: string[]) => void;
 }) {
   const [steps, setSteps] = useState<StepOption[]>(availableSteps);
 
@@ -54,6 +58,12 @@ export function SkuStepsEditor({
     }
     return initial;
   });
+
+  const codesCallback = useRef(onCodesChange);
+  codesCallback.current = onCodesChange;
+  useEffect(() => {
+    codesCallback.current?.(orderedCodes);
+  }, [orderedCodes]);
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
