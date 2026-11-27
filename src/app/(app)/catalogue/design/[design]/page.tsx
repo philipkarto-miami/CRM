@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SkuDesignForm } from "@/components/SkuDesignForm";
 import { SavedToast } from "@/components/SavedToast";
-import { MIGRATION_0029_MESSAGE, deriveDesign, fetchAllRows } from "@/lib/catalogue";
+import { MIGRATION_0029_MESSAGE, deriveDesign, fetchAllRows, fetchCollection } from "@/lib/catalogue";
 import { COLOR_NONE, photoGroupOf, type DesignRow } from "@/lib/sku";
 import { toRecipeSteps } from "@/lib/stages";
 import { isExecutionKey, type ExecutionKey } from "@/lib/execution";
@@ -151,10 +151,19 @@ export default async function SkuDesignPage({
 
   // Execution / edition commerciale / plafond (migration 0035) : lus a part pour
   // que la fiche s'ouvre meme si la migration n'est pas encore appliquee.
-  const { data: lineData } = await supabase
-    .from("sku_catalog")
-    .select("sku, execution, commercial_edition, max_units")
-    .in("sku", codes);
+  const [{ data: lineData }, { data: nameData }, collection] = await Promise.all([
+    supabase.from("sku_catalog").select("sku, execution, commercial_edition, max_units").in("sku", codes),
+    // Nom du design (migration 0036) et matrice des editions : lus a part.
+    supabase.from("sku_catalog").select("sku, design_name").in("sku", codes),
+    fetchCollection(supabase),
+  ]);
+  const designName = ((): string | null => {
+    const counts = new Map<string, number>();
+    for (const r of (nameData ?? []) as { design_name: string | null }[]) {
+      if (r.design_name) counts.set(r.design_name, (counts.get(r.design_name) ?? 0) + 1);
+    }
+    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  })();
   const lineRows = (lineData ?? []) as {
     execution: string | null;
     commercial_edition: string | null;
@@ -203,6 +212,8 @@ export default async function SkuDesignPage({
         execution={execution}
         commercialEdition={commercialEdition}
         maxUnits={maxUnits}
+        designName={designName}
+        collection={collection}
         bagsCount={bagsCount ?? 0}
         ordersCount={ordersCount ?? 0}
         error={searchParams?.error}

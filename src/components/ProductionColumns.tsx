@@ -12,6 +12,8 @@ export type ProductionCard = {
   phase: StagePhase;
   serial_number: string;
   model_label: string;
+  // Nom lisible du design (Square Painted), null si inconnu.
+  design_name?: string | null;
   sku: string | null;
   isPriority: boolean;
   isBlocked: boolean;
@@ -120,7 +122,14 @@ export function ProductionColumns({ columns }: { columns: ProductionColumn[] }) 
                       ) : null}
                     </div>
 
-                    <p className="mt-1 truncate text-[13px] text-paper/85">
+                    {bag.design_name && <p className="mt-1 truncate text-[13px] text-paper">{bag.design_name}</p>}
+                    <p
+                      className={
+                        bag.design_name
+                          ? "mt-0.5 truncate text-[11px] text-paper/60"
+                          : "mt-1 truncate text-[13px] text-paper/85"
+                      }
+                    >
                       {bag.model_label}{" "}
                       {bag.sku ? (
                         <span className="text-[11px] text-gold">· {bag.sku}</span>

@@ -1,6 +1,11 @@
 // Aides communes aux pages du catalogue (cote serveur).
 
+import type { createClient } from "@/lib/supabase/server";
+import { parseAvailability, type CollectionDesign } from "./collection";
+import { isExecutionKey } from "./execution";
 import { parseLegacyNeverfull } from "./sku";
+
+type Sb = ReturnType<typeof createClient>;
 
 // L'API Supabase plafonne chaque requete a 1000 lignes : on lit le catalogue
 // par pages de 1000 jusqu'a epuisement. L'erreur eventuelle est renvoyee (et
@@ -32,3 +37,39 @@ export function deriveDesign(sku: string): string {
 
 export const MIGRATION_0029_MESSAGE =
   "La migration 0029_fiches_design_catalogue.sql n'est pas encore appliquee dans Supabase : les fiches sont regroupees provisoirement d'apres les codes. Lance-la dans l'editeur SQL pour activer la gestion des modeles et couleurs.";
+
+// Nom lisible des designs (migration 0036), pour une liste de codes : lu par
+// paquets, erreur ignoree (sans migration, on retombe sur le line sheet puis sur
+// l'acronyme). Renvoie code -> nom.
+export async function fetchDesignNames(supabase: Sb, skus: string[]): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  const unique = [...new Set(skus.filter(Boolean))];
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += 150) chunks.push(unique.slice(i, i + 150));
+  const results = await Promise.all(chunks.map((chunk) => supabase.from("sku_catalog").select("sku, design_name").in("sku", chunk)));
+  for (const { data, error } of results) {
+    if (error || !data) continue;
+    for (const r of data as { sku: string; design_name: string | null }[]) {
+      if (r.design_name) names.set(r.sku, r.design_name);
+    }
+  }
+  return names;
+}
+
+// Matrice des editions (table collection_designs, migration 0036). Liste vide si
+// la table n'existe pas encore : les ecrans restent utilisables sans.
+export async function fetchCollection(supabase: Sb): Promise<CollectionDesign[]> {
+  const { data, error } = await supabase
+    .from("collection_designs")
+    .select("id, name, edition, execution, availability, sort_order")
+    .order("sort_order");
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    name: r.name as string,
+    edition: r.edition as string,
+    execution: isExecutionKey(r.execution) ? r.execution : null,
+    availability: parseAvailability(r.availability),
+    sortOrder: (r.sort_order as number) ?? 999,
+  }));
+}

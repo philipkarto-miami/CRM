@@ -166,7 +166,7 @@ export function recipeWarnings(
 export const COMMERCIAL_EDITIONS = [
   "PK01 Essentials",
   "PK02 Signature",
-  "PK03 Artwork",
+  "PK03 Artworks",
   "PK04 Collector",
   "Capsule NFE",
 ] as const;

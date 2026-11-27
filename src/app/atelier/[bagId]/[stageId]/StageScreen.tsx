@@ -117,7 +117,7 @@ export default function StageScreen({ initial }: { initial: StageDetailView }) {
           </div>
           <h1 className="af-h1">{s.name}</h1>
           <div className="af-meta" style={{ fontSize: 15 }}>
-            {bag.serial} · {bag.modelLabel}
+            {bag.serial} · {bag.designName ? `${bag.designName} · ` : ""}{bag.modelLabel}
             {bag.sku ? ` · ${bag.sku}` : ""}
           </div>
         </div>

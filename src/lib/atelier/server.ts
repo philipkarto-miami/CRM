@@ -6,6 +6,7 @@ import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { phaseRank, sortPhaseStages } from "@/lib/stages";
 import { MATERIAL_LABEL, commercialEditionFor, executionInfo } from "@/lib/execution";
 import { LINE_SHEET_BY_SKU } from "@/lib/linesheet";
+import { designNameFor } from "@/lib/collection";
 import { dimensionsFromLabel, formatDimensions, referenceDimensions } from "@/lib/dimensions";
 import {
   ATELIER_PHASES,
@@ -89,6 +90,7 @@ export interface BagContext {
   // Execution et edition commerciale du code PK (migration 0035, null sinon).
   execution: string | null;
   commercialEdition: string | null;
+  designName: string | null;
   photoFront: string | null;
   photoBack: string | null;
 }
@@ -135,6 +137,7 @@ export async function loadBagContext(
   let edition: string | null = null;
   let execution: string | null = null;
   let commercialEdition: string | null = null;
+  let designName: string | null = null;
   let photoFront: string | null = null;
   let photoBack: string | null = null;
   if (bag.sku) {
@@ -165,6 +168,11 @@ export async function loadBagContext(
     execution = (line?.execution as string | null | undefined) ?? null;
     commercialEdition = (line?.commercial_edition as string | null | undefined) ?? null;
   }
+  if (bag.sku) {
+    // Migration 0036 : colonne lue a part (absente = on retombe sur le line sheet).
+    const { data: named } = await supabase.from("sku_catalog").select("design_name").eq("sku", bag.sku).maybeSingle();
+    designName = designNameFor(bag.sku as string, (named?.design_name as string | null | undefined) ?? null);
+  }
   const sheet = bag.sku ? LINE_SHEET_BY_SKU.get(bag.sku as string) : undefined;
   execution = execution ?? sheet?.execution ?? null;
   commercialEdition = commercialEdition ?? sheet?.edition ?? null;
@@ -177,6 +185,7 @@ export async function loadBagContext(
       edition,
       execution,
       commercialEdition,
+      designName,
       photoFront,
       photoBack,
     },
@@ -285,6 +294,7 @@ function buildBagInfo(ctx: BagContext): BagInfo {
     modelLabel: bag.model_label,
     sku: bag.sku,
     edition: ctx.edition,
+    designName: ctx.designName,
     commercialEdition: commercialEditionFor(ctx.commercialEdition, ctx.edition),
     executionLabel: info?.label ?? null,
     materialLabel: info ? MATERIAL_LABEL[info.material] : null,

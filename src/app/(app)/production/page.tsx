@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { ProductionColumns, type ProductionCard, type ProductionColumn } from "@/components/ProductionColumns";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
 import { sortPhaseStages } from "@/lib/stages";
+import { fetchDesignNames } from "@/lib/catalogue";
+import { designNameFor } from "@/lib/collection";
 import { cn } from "@/lib/utils";
 import type { Bag, BagStageProgress, ProductionStage } from "@/types/database";
 
@@ -33,6 +35,12 @@ export default async function ProductionPage({
       "*, bag_stage_progress(status, blocked_at, subcontract_note, sequence_override, production_stages(phase, name, order_index))"
     )
     .order("created_at", { ascending: false });
+
+  // Noms lisibles des designs (migration 0036), puis line sheet a defaut.
+  const dbNames = await fetchDesignNames(
+    supabase,
+    ((bags as unknown as { sku: string | null }[] | null) ?? []).map((b) => b.sku).filter((s): s is string => Boolean(s))
+  );
 
   const typedBags = ((bags as BagWithProgress[] | null) ?? []).map((b) => ({
     ...b,
@@ -78,6 +86,7 @@ export default async function ProductionPage({
       phase: bag.current_phase,
       serial_number: bag.serial_number,
       model_label: bag.model_label,
+      design_name: designNameFor(bag.sku, bag.sku ? dbNames.get(bag.sku) : null),
       sku: bag.sku,
       isPriority: bag.is_priority,
       isBlocked: Boolean(blockedStep),
@@ -103,7 +112,7 @@ export default async function ProductionPage({
     if (blockedActive && !c.isBlocked) return false;
     if (lateActive && !c.isLate) return false;
     if (q) {
-      const haystack = `${c.serial_number} ${c.model_label} ${c.sku ?? ""}`.toLowerCase();
+      const haystack = `${c.serial_number} ${c.model_label} ${c.design_name ?? ""} ${c.sku ?? ""}`.toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     return true;

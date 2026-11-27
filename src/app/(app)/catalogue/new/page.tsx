@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { NewSkuBatchForm } from "@/components/NewSkuBatchForm";
 import { toRecipeSteps } from "@/lib/stages";
+import { fetchCollection } from "@/lib/catalogue";
 
 export default async function NewSkuCatalogPage({ searchParams }: { searchParams: { error?: string } }) {
   const supabase = createClient();
-  const [{ data: stages }, { data: models }] = await Promise.all([
+  const [{ data: stages }, { data: models }, collection] = await Promise.all([
     supabase
       .from("production_stages")
       .select("name, catalog_column, phase, order_index")
@@ -13,6 +14,7 @@ export default async function NewSkuCatalogPage({ searchParams }: { searchParams
       .order("phase")
       .order("order_index"),
     supabase.from("bag_models").select("id, name, base_size, brands(name)").order("sort_order"),
+    fetchCollection(supabase),
   ]);
 
   // Tous les codes deja au catalogue (par pages de 1000 : limite de l'API) pour
@@ -44,6 +46,7 @@ export default async function NewSkuCatalogPage({ searchParams }: { searchParams
       models={modelOptions}
       existingSkus={existingSkus}
       recipeSteps={toRecipeSteps(stages ?? [])}
+      collection={collection}
       error={searchParams?.error}
     />
   );

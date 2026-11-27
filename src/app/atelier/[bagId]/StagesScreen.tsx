@@ -60,6 +60,9 @@ export default function StagesScreen({ initial }: { initial: BagView }) {
               {bag.isPriority && <Badge variant="accent">Priorité</Badge>}
               {bag.isLate && <Badge variant="error">Retard {bag.daysLate} j</Badge>}
             </div>
+            {bag.designName && (
+              <div style={{ fontSize: 20, fontWeight: 600 }}>{bag.designName}</div>
+            )}
             <div className="af-meta" style={{ fontSize: 15 }}>
               {bag.modelLabel}
               {bag.sku ? ` · ${bag.sku}` : " · Aucun code attribué"}

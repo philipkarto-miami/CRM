@@ -9,6 +9,7 @@ import { commercialEditionFor, executionLabel } from "@/lib/execution";
 type CatalogRow = { sku: string; design?: string | null; edition: string | null; photo_path: string | null };
 
 type LineRow = { sku: string; commercial_edition: string | null; execution: string | null };
+type NameRow = { sku: string; design_name: string | null };
 
 type DesignCard = {
   design: string;
@@ -16,6 +17,8 @@ type DesignCard = {
   edition: string | null;
   commercial: string | null;
   execution: string | null;
+  // Nom lisible (Square Painted), migration 0036 ; null = on affiche l'acronyme.
+  name: string | null;
   photoPath: string | null;
 };
 
@@ -45,17 +48,30 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
     supabase.from("sku_catalog").select("sku, commercial_edition, execution").order("sku").range(from, to)
   );
   const lineBySku = new Map(lineRows.map((r) => [r.sku, r]));
+  const { rows: nameRows } = await fetchAllRows<NameRow>((from, to) =>
+    supabase.from("sku_catalog").select("sku, design_name").order("sku").range(from, to)
+  );
+  const nameBySku = new Map(nameRows.map((r) => [r.sku, r.design_name]));
 
   const byDesign = new Map<string, DesignCard>();
   for (const row of rows) {
     const design = row.design ?? deriveDesign(row.sku);
     const card =
-      byDesign.get(design) ?? { design, codes: [], edition: null, commercial: null, execution: null, photoPath: null };
+      byDesign.get(design) ?? {
+        design,
+        codes: [],
+        edition: null,
+        commercial: null,
+        execution: null,
+        name: null,
+        photoPath: null,
+      };
     card.codes.push(row.sku);
     card.edition = card.edition ?? row.edition;
     const line = lineBySku.get(row.sku);
     card.commercial = card.commercial ?? line?.commercial_edition ?? null;
     card.execution = card.execution ?? line?.execution ?? null;
+    card.name = card.name ?? nameBySku.get(row.sku) ?? null;
     card.photoPath = card.photoPath ?? row.photo_path;
     byDesign.set(design, card);
   }
@@ -69,7 +85,11 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
   const cards = [...byDesign.values()]
     .map((card) => {
       if (!nq) return { card, matched: [] as string[], wholeDesign: true };
-      const wholeDesign = norm(`PK${card.design}`).includes(nq) || norm(card.edition ?? "").includes(nq);
+      const wholeDesign =
+        norm(`PK${card.design}`).includes(nq) ||
+        norm(card.edition ?? "").includes(nq) ||
+        norm(card.name ?? "").includes(nq) ||
+        norm(card.commercial ?? "").includes(nq);
       const matched = card.codes.filter((code) => norm(code).includes(nq));
       return { card, matched: wholeDesign ? card.codes : matched, wholeDesign };
     })
@@ -119,7 +139,7 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
           type="search"
           name="q"
           defaultValue={searchParams?.q ?? ""}
-          placeholder="Rechercher un design, un code ou une edition (ex: SBLK, PKPOP35, PK.03)"
+          placeholder="Rechercher un design, un code ou une edition (ex: Square, PKPOP35, PK.03)"
           className="input-base w-full max-w-md px-3 py-2 text-sm"
         />
       </form>
@@ -145,8 +165,9 @@ export default async function CataloguePage({ searchParams }: { searchParams: { 
                     <span className="text-xs text-paper/30">Pas de photo</span>
                   )}
                 </div>
-                <p className="text-sm text-paper/80">PK{card.design}</p>
+                <p className="text-sm text-paper/80">{card.name ?? `PK${card.design}`}</p>
                 <p className="text-xs text-paper/40">
+                  {card.name ? `PK${card.design} · ` : ""}
                   {card.codes.length} code{card.codes.length > 1 ? "s" : ""}
                   {card.edition ? ` · ${card.edition}` : ""}
                 </p>

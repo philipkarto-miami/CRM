@@ -8,6 +8,11 @@ import { RenameDesignForm } from "@/components/RenameDesignForm";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
 import { FormRow, Input, Select } from "@/components/ui/Field";
 import {
+  checkAvailability,
+  describeAvailability,
+  type CollectionDesign,
+} from "@/lib/collection";
+import {
   COMMERCIAL_EDITIONS,
   EXECUTIONS,
   executionInfo,
@@ -49,6 +54,8 @@ export function SkuDesignForm({
   execution: initialExecution,
   commercialEdition: initialCommercial,
   maxUnits: initialMaxUnits,
+  designName: initialDesignName,
+  collection,
   bagsCount,
   ordersCount,
   error,
@@ -72,6 +79,9 @@ export function SkuDesignForm({
   execution: ExecutionKey | null;
   commercialEdition: string | null;
   maxUnits: number | null;
+  // Nom lisible du design (Square Painted) et matrice des editions.
+  designName: string | null;
+  collection: CollectionDesign[];
   bagsCount: number;
   ordersCount: number;
   error?: string;
@@ -92,6 +102,7 @@ export function SkuDesignForm({
   const [execution, setExecution] = useState<ExecutionKey | "">(initialExecution ?? "");
   const [commercial, setCommercial] = useState(initialCommercial ?? "");
   const [maxUnits, setMaxUnits] = useState(initialMaxUnits ? String(initialMaxUnits) : "");
+  const [designName, setDesignName] = useState(initialDesignName ?? "");
   const [lineTouched, setLineTouched] = useState(false);
   // Etapes cochees de chaque couleur (pour comparer a l'execution) et recette
   // type appliquee a la main (numero d'application : remonte l'editeur).
@@ -174,6 +185,39 @@ export function SkuDesignForm({
     markRecipe(key);
   }
 
+  const picked = useMemo(() => collection.find((d) => d.name === designName) ?? null, [collection, designName]);
+  const gamme = useMemo(
+    () =>
+      picked
+        ? checkAvailability(
+            picked.availability,
+            models.filter((m) => selectedModels.has(m.id)).map((m) => ({ name: m.name, baseSize: m.baseSize }))
+          )
+        : null,
+    [picked, models, selectedModels]
+  );
+
+  // Choisir un design de la matrice : edition et execution suivent (les modeles
+  // restent a toi, la gamme officielle te dit ce qui manque).
+  function pickDesign(name: string) {
+    setDesignName(name);
+    const d = collection.find((c) => c.name === name);
+    if (d) {
+      setCommercial(d.edition);
+      setExecution(d.execution ?? "");
+    }
+    setLineTouched(true);
+  }
+
+  // Coche un modele manquant ("Speedy 25").
+  function tickModel(label: string) {
+    const cut = label.lastIndexOf(" ");
+    const family = label.slice(0, cut).toLowerCase();
+    const size = label.slice(cut + 1).toUpperCase();
+    const model = models.find((m) => m.name.toLowerCase().includes(family) && (m.baseSize ?? "").toUpperCase() === size);
+    if (model) setSelectedModels((prev) => new Set(prev).add(model.id));
+  }
+
   const hasChanges =
     plan.create.length > 0 ||
     plan.remove.length > 0 ||
@@ -233,8 +277,9 @@ export function SkuDesignForm({
         </Link>{" "}
         <span className="text-paper/45">/</span> PK{design}
       </p>
-      <h2 className="mt-0.5 font-serif text-2xl text-paper">PK{design}</h2>
+      <h2 className="mt-0.5 font-serif text-2xl text-paper">{initialDesignName ?? `PK${design}`}</h2>
       <p className="mt-1 text-sm text-paper/55">
+        {initialDesignName ? `PK${design} · ` : ""}
         {rows.length} code{rows.length > 1 ? "s" : ""} PK{edition ? ` · ${edition}` : ""}. Coche les modèles et les
         couleurs applicables : les codes manquants sont créés, ceux que tu décoches sont supprimés.
       </p>
@@ -343,6 +388,55 @@ export function SkuDesignForm({
                 Valable pour tout le design. L&apos;exécution sert de repère : l&apos;écran prévient si une recette ne lui
                 correspond pas, sans jamais bloquer.
               </p>
+              {(collection.length > 0 || designName) && (
+                <div className="mb-4">
+                  <FormRow label="Design de la collection">
+                    <Select value={designName} onChange={(e) => pickDesign(e.target.value)}>
+                      <option value="">— hors collection</option>
+                      {designName && !picked && <option value={designName}>{designName} (hors matrice)</option>}
+                      {COMMERCIAL_EDITIONS.map((ed) => {
+                        const items = collection.filter((d) => d.edition === ed);
+                        return items.length === 0 ? null : (
+                          <optgroup key={ed} label={ed}>
+                            {items.map((d) => (
+                              <option key={d.id} value={d.name}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
+                    </Select>
+                  </FormRow>
+                  {picked && gamme && (
+                    <div className="mt-2.5 text-xs text-paper/60">
+                      <p>Gamme officielle : {describeAvailability(picked.availability)}</p>
+                      {gamme.missing.length === 0 && gamme.extra.length === 0 ? (
+                        <p className="mt-1 text-paper/80">✓ Les modèles cochés correspondent à la matrice.</p>
+                      ) : (
+                        <div className="mt-1.5 space-y-1.5 rounded-sm border border-gold/40 bg-gold/10 p-2.5 text-paper/80">
+                          {gamme.missing.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span>⚠ Manque :</span>
+                              {gamme.missing.map((label) => (
+                                <button
+                                  key={label}
+                                  type="button"
+                                  onClick={() => tickModel(label)}
+                                  className="rounded-sm border border-gold/60 px-1.5 py-0.5 text-[11px] hover:bg-gold/20"
+                                >
+                                  + {label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {gamme.extra.length > 0 && <p>⚠ Hors gamme officielle : {gamme.extra.join(", ")}.</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 {EXECUTIONS.map((e) => (
                   <button
@@ -396,6 +490,7 @@ export function SkuDesignForm({
                   <input type="hidden" name="execution" value={execution} />
                   <input type="hidden" name="commercial_edition" value={commercial} />
                   <input type="hidden" name="max_units" value={maxUnits} />
+                  <input type="hidden" name="design_name" value={designName} />
                 </>
               )}
             </div>

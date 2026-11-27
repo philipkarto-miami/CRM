@@ -65,6 +65,8 @@ function readColorRecipes(formData: FormData, colorKeys: string[]): Map<string, 
 
 const MIGRATION_0035_MESSAGE =
   "La migration 0035_ligne_collection.sql n'est pas encore appliquee dans Supabase : lance-la dans l'editeur SQL, puis reessaie.";
+const MIGRATION_0036_MESSAGE =
+  "La migration 0036_matrice_collection.sql n'est pas encore appliquee dans Supabase : lance-la dans l'editeur SQL, puis reessaie.";
 
 // Champs issus du line sheet (migration 0035) : execution, edition commerciale et
 // plafond de production. Ils ne sont envoyes que s'ils sont renseignes, pour que
@@ -77,6 +79,8 @@ function readLineFields(formData: FormData): Record<string, string | number> {
   if ((COMMERCIAL_EDITIONS as readonly string[]).includes(commercial)) out.commercial_edition = commercial;
   const cap = Number(String(formData.get("max_units") ?? "").trim());
   if (Number.isInteger(cap) && cap > 0) out.max_units = cap;
+  const designName = String(formData.get("design_name") ?? "").trim().slice(0, 80);
+  if (designName) out.design_name = designName;
   return out;
 }
 
@@ -247,7 +251,9 @@ export async function createSkuCatalogBatch(formData: FormData): Promise<void> {
   );
   if (error) {
     failNewSku(
-      /execution|commercial_edition|max_units/.test(error.message)
+      /design_name/.test(error.message)
+        ? MIGRATION_0036_MESSAGE
+        : /execution|commercial_edition|max_units/.test(error.message)
         ? MIGRATION_0035_MESSAGE
         : /design|color_code/.test(error.message)
           ? "La migration 0029_fiches_design_catalogue.sql n'est pas encore appliquee dans Supabase : lance-la dans l'editeur SQL, puis reessaie."
@@ -403,6 +409,7 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
           ...(reference.execution ? { execution: reference.execution } : {}),
           ...(reference.commercial_edition ? { commercial_edition: reference.commercial_edition } : {}),
           ...(reference.max_units ? { max_units: reference.max_units } : {}),
+          ...(reference.design_name ? { design_name: reference.design_name } : {}),
         };
       })
     );
@@ -479,15 +486,25 @@ export async function saveSkuDesign(formData: FormData): Promise<void> {
     const execution = String(formData.get("execution") ?? "");
     const commercial = String(formData.get("commercial_edition") ?? "");
     const cap = Number(String(formData.get("max_units") ?? "").trim());
+    const designName = String(formData.get("design_name") ?? "").trim().slice(0, 80);
     const { error } = await supabase
       .from("sku_catalog")
       .update({
         execution: isExecutionKey(execution) ? execution : null,
         commercial_edition: (COMMERCIAL_EDITIONS as readonly string[]).includes(commercial) ? commercial : null,
         max_units: Number.isInteger(cap) && cap > 0 ? cap : null,
+        design_name: designName || null,
       })
       .eq("design", design);
-    if (error) fail(/execution|commercial_edition|max_units/.test(error.message) ? MIGRATION_0035_MESSAGE : error.message);
+    if (error) {
+      fail(
+        /design_name/.test(error.message)
+          ? MIGRATION_0036_MESSAGE
+          : /execution|commercial_edition|max_units/.test(error.message)
+            ? MIGRATION_0035_MESSAGE
+            : error.message
+      );
+    }
     lineSaved = true;
   }
 

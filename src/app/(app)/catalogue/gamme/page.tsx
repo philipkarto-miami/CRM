@@ -2,7 +2,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/PageHeader";
 import { LinkButton } from "@/components/ui/Button";
-import { fetchAllRows, deriveDesign } from "@/lib/catalogue";
+import { fetchAllRows, deriveDesign, fetchCollection } from "@/lib/catalogue";
+import { checkAvailability, describeAvailability } from "@/lib/collection";
 import { LINE_SHEET_BY_SKU, LINE_SHEET_CODES, codesOutsideLineSheet, lookalikeCode } from "@/lib/linesheet";
 import { checkRecipe, executionInfo, executionLabel, stepCodeLabel } from "@/lib/execution";
 
@@ -13,13 +14,14 @@ type Row = {
   steps: Record<string, number | string> | null;
 };
 type LineRow = { sku: string; execution: string | null; max_units: number | null };
+type NamedRow = { sku: string; design_name: string | null; bag_model_id: string | null };
 
 // Gamme 2027 : le line sheet (inventaire des codes vendus aux acheteurs)
 // compare au catalogue du CRM. Lecture seule : rien n'est cree ni renomme ici.
 export default async function GammePage() {
   const supabase = createClient();
 
-  const [catalog, line] = await Promise.all([
+  const [catalog, line, collection, named, { data: modelRows }] = await Promise.all([
     fetchAllRows<Row>((from, to) =>
       supabase.from("sku_catalog").select("sku, design, color_code, steps").order("sku").range(from, to)
     ),
@@ -27,6 +29,12 @@ export default async function GammePage() {
     fetchAllRows<LineRow>((from, to) =>
       supabase.from("sku_catalog").select("sku, execution, max_units").order("sku").range(from, to)
     ),
+    // Matrice des editions et noms de design (migration 0036) : lus a part.
+    fetchCollection(supabase),
+    fetchAllRows<NamedRow>((from, to) =>
+      supabase.from("sku_catalog").select("sku, design_name, bag_model_id").order("sku").range(from, to)
+    ),
+    supabase.from("bag_models").select("id, name, base_size"),
   ]);
   const migrationMissing = Boolean(line.error);
   const lineBySku = new Map(line.rows.map((r) => [r.sku, r]));
@@ -71,6 +79,24 @@ export default async function GammePage() {
     for (const b of data ?? []) used.set(b.sku as string, (used.get(b.sku as string) ?? 0) + 1);
   }
 
+  // Gamme officielle (matrice) comparee aux modeles presents au catalogue, par design.
+  const modelById = new Map((modelRows ?? []).map((m) => [m.id as string, { name: m.name as string, baseSize: (m.base_size as string | null) ?? null }]));
+  const modelsByName = new Map<string, { name: string; baseSize: string | null }[]>();
+  for (const r of named.rows) {
+    if (!r.design_name || !r.bag_model_id) continue;
+    const model = modelById.get(r.bag_model_id);
+    if (!model) continue;
+    const list = modelsByName.get(r.design_name) ?? [];
+    if (!list.some((m) => m.name === model.name && m.baseSize === model.baseSize)) list.push(model);
+    modelsByName.set(r.design_name, list);
+  }
+  const matrixRows = collection.map((d) => ({
+    design: d,
+    present: named.rows.some((r) => r.design_name === d.name),
+    ...checkAvailability(d.availability, modelsByName.get(d.name) ?? []),
+  }));
+  const matrixGaps = matrixRows.filter((r) => r.missing.length > 0 || r.extra.length > 0).length;
+
   const missingByEdition = new Map<string, typeof missing>();
   for (const c of missing) missingByEdition.set(c.edition, [...(missingByEdition.get(c.edition) ?? []), c]);
 
@@ -109,12 +135,49 @@ export default async function GammePage() {
         </p>
       )}
 
-      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-5">
         {stat("Codes du line sheet", LINE_SHEET_CODES.length)}
         {stat("Déjà au catalogue", LINE_SHEET_CODES.length - missing.length)}
         {stat("Manquants", missing.length, missing.length > 0 ? "warn" : undefined)}
         {stat("Recettes à revoir", gapList.length, gapList.length > 0 ? "warn" : undefined)}
+        {collection.length > 0 && stat("Designs à compléter", matrixGaps, matrixGaps > 0 ? "warn" : undefined)}
       </div>
+
+      {collection.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-1 font-serif text-xl text-paper">Matrice des éditions et catalogue</h2>
+          <p className="mb-4 text-xs text-paper/55">
+            Pour chaque design de la collection, les modèles vendus comparés à ceux qui existent au catalogue. La matrice se
+            règle dans Réglages &gt; Collection ; les modèles manquants se créent depuis la fiche du design.
+          </p>
+          <div className="card overflow-x-auto rounded-sm">
+            <table className="w-full text-left text-sm">
+              <tbody>
+                {matrixRows.map(({ design, present, missing: miss, extra }) => (
+                  <tr key={design.id} className="border-b border-line/60 align-top last:border-0">
+                    <td className="whitespace-nowrap px-3 py-2 text-paper/85">{design.name}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-paper/45">{design.edition}</td>
+                    <td className="px-3 py-2 text-xs text-paper/55">{describeAvailability(design.availability)}</td>
+                    <td className="px-3 py-2 text-xs">
+                      {!present ? (
+                        <span className="text-gold">pas encore au catalogue</span>
+                      ) : miss.length === 0 && extra.length === 0 ? (
+                        <span className="text-paper/60">✓ complet</span>
+                      ) : (
+                        <>
+                          {miss.length > 0 && <span className="text-gold">manque {miss.join(", ")}</span>}
+                          {miss.length > 0 && extra.length > 0 && " · "}
+                          {extra.length > 0 && <span className="text-paper/55">en plus {extra.join(", ")}</span>}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       <section className="mb-10">
         <h2 className="mb-1 font-serif text-xl text-paper">Codes manquants au catalogue</h2>

@@ -78,6 +78,8 @@ export interface BagInfo {
   modelLabel: string;
   sku: string | null;
   edition: string | null;
+  // Nom lisible du design (Square Painted), null si inconnu.
+  designName: string | null;
   // Fiche technique (line sheet 2027) : edition commerciale, execution, matiere,
   // dimensions de reference. Null quand l'information n'est pas connue.
   commercialEdition: string | null;

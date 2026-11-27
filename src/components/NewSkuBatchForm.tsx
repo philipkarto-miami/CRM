@@ -7,6 +7,13 @@ import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { SkuStepsEditor } from "@/components/SkuStepsEditor";
 import { SKU_COLORS, generateSkuVariants, normalizeDesign } from "@/lib/sku";
 import {
+  atelierEditionFor,
+  availableModelIds,
+  checkAvailability,
+  describeAvailability,
+  type CollectionDesign,
+} from "@/lib/collection";
+import {
   COMMERCIAL_EDITIONS,
   EXECUTIONS,
   executionInfo,
@@ -29,11 +36,14 @@ export function NewSkuBatchForm({
   models,
   existingSkus,
   recipeSteps,
+  collection,
   error,
 }: {
   models: ModelOption[];
   existingSkus: string[];
   recipeSteps: RecipeStepOption[];
+  // Matrice des editions (vide tant que la migration 0036 n'est pas appliquee).
+  collection: CollectionDesign[];
   error?: string;
 }) {
   const [design, setDesign] = useState("");
@@ -44,6 +54,21 @@ export function NewSkuBatchForm({
   const [execution, setExecution] = useState<ExecutionKey | "">("");
   const [commercial, setCommercial] = useState("");
   const [recipeCodes, setRecipeCodes] = useState<string[]>([]);
+  const [designName, setDesignName] = useState("");
+  const pickedDesign = useMemo(() => collection.find((d) => d.name === designName) ?? null, [collection, designName]);
+
+  // Choisir un design de la matrice : modeles, edition et execution se remplissent.
+  function pickDesign(d: CollectionDesign) {
+    if (d.name === designName) {
+      setDesignName("");
+      return;
+    }
+    setDesignName(d.name);
+    setCommercial(d.edition);
+    setExecution(d.execution ?? "");
+    setSelectedModels(new Set(availableModelIds(d.availability, models)));
+    setEdition((prev) => prev || atelierEditionFor(d.edition) || "");
+  }
 
   const stepName = useMemo(() => new Map(recipeSteps.map((s) => [s.code, s.name])), [recipeSteps]);
   const warnings = useMemo(
@@ -95,6 +120,17 @@ export function NewSkuBatchForm({
     return new Set([...counts].filter(([, n]) => n > 1).map(([sku]) => sku));
   }, [variants]);
 
+  const gamme = useMemo(
+    () =>
+      pickedDesign
+        ? checkAvailability(
+            pickedDesign.availability,
+            chosenModels.map((m) => ({ name: m.name, baseSize: m.baseSize }))
+          )
+        : null,
+    [pickedDesign, chosenModels]
+  );
+
   const creatable = variants.filter((v) => !existing.has(v.sku));
   const alreadyThere = variants.length - creatable.length;
   const canSubmit = design !== "" && creatable.length > 0 && duplicateCodes.size === 0 && !submitting;
@@ -132,6 +168,44 @@ export function NewSkuBatchForm({
 
       <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="space-y-6">
+          {/* 0. Design de la collection (matrice des editions) */}
+          {collection.length > 0 && (
+            <div className="card rounded-sm p-5">
+              <h3 className="mb-1 font-serif text-[17px] text-paper">Design de la collection</h3>
+              <p className="mb-3.5 text-xs text-paper/55">
+                Choisis-le : les modèles, l&apos;édition et l&apos;exécution se remplissent. Il ne reste que l&apos;acronyme
+                et les couleurs. Pour un design hors collection, ne choisis rien.
+              </p>
+              <div className="space-y-3">
+                {COMMERCIAL_EDITIONS.map((ed) => {
+                  const items = collection.filter((d) => d.edition === ed);
+                  if (items.length === 0) return null;
+                  return (
+                    <div key={ed}>
+                      <p className="mb-1.5 text-[11px] uppercase tracking-widest2 text-paper/45">{ed}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {items.map((d) => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() => pickDesign(d)}
+                            className={cn(chipBase, d.name === designName ? chipOn : chipOff)}
+                          >
+                            {d.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {pickedDesign && (
+                <p className="mt-3 text-xs text-paper/55">Gamme : {describeAvailability(pickedDesign.availability)}</p>
+              )}
+              <input type="hidden" name="design_name" value={designName} />
+            </div>
+          )}
+
           {/* 1. Modeles */}
           <div className="card rounded-sm p-5">
             <h3 className="mb-1 font-serif text-[17px] text-paper">1 · Modèles de sac</h3>
@@ -172,6 +246,13 @@ export function NewSkuBatchForm({
               })}
               {groups.length === 0 && <p className="text-sm text-paper/45">Aucun modèle de sac disponible.</p>}
             </div>
+            {gamme && (gamme.missing.length > 0 || gamme.extra.length > 0) && (
+              <div className="mt-3.5 rounded-sm border border-gold/40 bg-gold/10 p-3 text-xs text-paper/80">
+                {gamme.missing.length > 0 && <p>⚠ Manque par rapport à la gamme : {gamme.missing.join(", ")}.</p>}
+                {gamme.extra.length > 0 && <p>⚠ Hors gamme officielle : {gamme.extra.join(", ")}.</p>}
+                <p className="mt-1 text-paper/55">Avertissement seulement : tu peux créer les codes tel quel.</p>
+              </div>
+            )}
           </div>
 
           {/* 2. Design + couleurs */}
