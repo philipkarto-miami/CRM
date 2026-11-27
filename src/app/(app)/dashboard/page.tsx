@@ -19,13 +19,13 @@ type BlockedRow = BagStageProgress & {
 // Degrade beige -> or, un ton par phase (hors comptabilite, qui ne concerne
 // pas la charge de fabrication).
 const PHASE_BAR_COLORS: Record<string, string> = {
-  reception: "#e9e3d2",
-  disassembly: "#ddd3b8",
-  stock_propre: "#cfc19d",
+  reception: "#c9c0a6",
+  disassembly: "#bba97c",
+  stock_propre: "#ad9a68",
   manufacturing: "#8a6a30",
   quality_control: "#a98c4e",
   wrapping: "#c0a76a",
-  shipping: "#d5c79f",
+  shipping: "#b5ab8e",
 };
 
 function daysBetween(from: string, to: string) {
@@ -119,6 +119,23 @@ export default async function DashboardPage() {
     count: typedBags.filter((b) => b.current_phase === phase).length,
   }));
   const chargeTotal = counts.filter((c) => c.phase !== "accounting").reduce((s, c) => s + c.count, 0) || 1;
+
+  // Colonnes "charge de l'atelier" : phases non vides, sacs prioritaires puis
+  // livraison la plus proche (ou la plus depassee) d'abord, sans date en dernier.
+  const phaseColumns = PHASE_ORDER.filter((phase) => phase !== "accounting")
+    .map((phase) => ({
+      phase,
+      bags: typedBags
+        .filter((b) => b.current_phase === phase)
+        .sort((a, b) => {
+          if (a.is_priority !== b.is_priority) return a.is_priority ? -1 : 1;
+          if (!a.delivery_date && !b.delivery_date) return 0;
+          if (!a.delivery_date) return 1;
+          if (!b.delivery_date) return -1;
+          return a.delivery_date.localeCompare(b.delivery_date);
+        }),
+    }))
+    .filter((col) => col.bags.length > 0);
 
   // File d'actions : commandes sans sac avec match possible, puis etapes
   // bloquees (les plus anciennes d'abord), puis retards (les plus longs
@@ -303,33 +320,77 @@ export default async function DashboardPage() {
       </div>
 
       <p className="eyebrow mb-2.5">Charge de l&apos;atelier par phase</p>
-      <div className="flex h-[34px] overflow-hidden rounded-sm border border-line">
-        {counts
-          .filter((c) => c.phase !== "accounting")
-          .map((c) => (
-            <Link
-              key={c.phase}
-              href={`/production#phase-${c.phase}`}
-              style={{ flex: c.count || 0.0001, background: PHASE_BAR_COLORS[c.phase] }}
-              className="flex items-center justify-center text-[11px] text-paper/70"
-              title={PHASE_LABELS[c.phase]}
+      {/* Une colonne par phase qui contient des sacs, avec les sacs eux-memes :
+          on voit quels sacs sont ou, et lesquels sont en retard ou bloques. */}
+      {phaseColumns.length === 0 ? (
+        <p className="card rounded-sm px-4 py-5 text-sm text-paper/50">Aucun sac en cours de fabrication.</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {phaseColumns.map((col) => (
+            <div
+              key={col.phase}
+              className="card rounded-sm border-t-[3px] px-3.5 pb-3 pt-3"
+              style={{ borderTopColor: PHASE_BAR_COLORS[col.phase] }}
             >
-              {c.count > 0 && c.count}
-            </Link>
+              <Link
+                href={`/production#phase-${col.phase}`}
+                className="mb-2 flex items-baseline justify-between gap-2 hover:text-gold"
+                title="Ouvrir le kanban"
+              >
+                <span className="text-[11px] uppercase tracking-wide text-paper/70">{PHASE_LABELS[col.phase]}</span>
+                <span className="font-serif text-2xl leading-none text-paper">{col.bags.length}</span>
+              </Link>
+              <ul className="divide-y divide-line/60">
+                {col.bags.slice(0, 5).map((b) => {
+                  const late = Boolean(b.delivery_date) && (b.delivery_date as string) < today;
+                  const blocked = blockedBagIds.has(b.id);
+                  return (
+                    <li key={b.id}>
+                      <Link
+                        href={`/bags/${b.id}?from=production`}
+                        className="flex min-h-[44px] items-center gap-2.5 py-2 hover:bg-bone/60"
+                      >
+                        <span
+                          className={cn(
+                            "h-2 w-2 shrink-0 rounded-full",
+                            late ? "bg-danger" : blocked ? "bg-amber-500" : "bg-line"
+                          )}
+                          aria-hidden
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm text-gold">{b.serial_number}</span>
+                          <span className="block truncate text-xs text-paper/55">{b.model_label}</span>
+                        </span>
+                        <span className="shrink-0 text-right text-[11px] leading-tight">
+                          {late && (
+                            <span className="block text-danger">
+                              retard {daysBetween(b.delivery_date as string, today)} j
+                            </span>
+                          )}
+                          {blocked && <span className="block text-amber-600">bloque</span>}
+                          {b.is_priority && <span className="block text-paper/60">prioritaire</span>}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+              {col.bags.length > 5 && (
+                <Link
+                  href={`/production#phase-${col.phase}`}
+                  className="mt-1 block py-2 text-xs text-gold hover:underline"
+                >
+                  + {col.bags.length - 5} autre{col.bags.length - 5 > 1 ? "s" : ""} →
+                </Link>
+              )}
+            </div>
           ))}
-      </div>
-      <div className="mt-1.5 flex text-[10px] uppercase tracking-wide text-paper/55">
-        {counts
-          .filter((c) => c.phase !== "accounting")
-          .map((c) => (
-            <span key={c.phase} style={{ flex: c.count || 0.0001 }} className="text-center">
-              {PHASE_LABELS[c.phase]}
-            </span>
-          ))}
-      </div>
+        </div>
+      )}
       <p className="mt-3.5 text-xs text-paper/55">
-        Chaque segment mene au kanban filtre. Le chiffre d&apos;affaires et les paiements restent sur la page Commandes
-        (role comptabilite) — ils ne pilotent pas l&apos;atelier.
+        Clique sur un sac pour ouvrir sa fiche, sur le titre d&apos;une phase pour ouvrir le kanban. Le chiffre
+        d&apos;affaires et les paiements restent sur la page Commandes (role comptabilite) — ils ne pilotent pas
+        l&apos;atelier.
       </p>
       <p className="mt-1 text-[11px] text-paper/40">
         {chargeTotal} sac{chargeTotal > 1 ? "s" : ""} en cours de fabrication (hors comptabilite).
