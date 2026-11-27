@@ -6,6 +6,7 @@ import { Card, CardTitle } from "@/components/ui/Card";
 import { FormRow, Input, Select } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
 import { StageToggle } from "@/components/StageToggle";
+import { StageTargetInput } from "@/components/StageTargetInput";
 import { SavedToast } from "@/components/SavedToast";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
 import type { ProductionStage } from "@/types/database";
@@ -42,7 +43,12 @@ export default async function StagesSettingsPage() {
                     <span className="text-sm text-paper/80">
                       {stage.order_index}. {stage.name}
                     </span>
-                    <StageToggle stageId={stage.id} isActive={stage.is_active} />
+                    <div className="flex items-center gap-5">
+                      {["disassembly", "manufacturing", "quality_control", "wrapping"].includes(stage.phase) && (
+                        <StageTargetInput stageId={stage.id} minutes={stage.target_minutes ?? null} />
+                      )}
+                      <StageToggle stageId={stage.id} isActive={stage.is_active} />
+                    </div>
                   </div>
                 ))}
                 {group.items.length === 0 && (

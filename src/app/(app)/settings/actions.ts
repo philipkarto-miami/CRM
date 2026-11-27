@@ -32,6 +32,22 @@ export async function toggleStageActive(stageId: string, isActive: boolean) {
   revalidatePath("/settings/stages");
 }
 
+// Objectif de temps d'une etape (mode atelier). Vide ou 0 = pas d'objectif.
+export async function updateStageTarget(stageId: string, minutes: number | null): Promise<{ error?: string }> {
+  const supabase = createClient();
+  const value = minutes && minutes > 0 ? Math.round(minutes) : null;
+  const { error } = await supabase.from("production_stages").update({ target_minutes: value }).eq("id", stageId);
+  if (error) {
+    return {
+      error: /target_minutes/.test(error.message)
+        ? "La migration 0034_chrono_atelier.sql n'est pas encore appliquee dans Supabase."
+        : error.message,
+    };
+  }
+  revalidatePath("/settings/stages");
+  return {};
+}
+
 export async function deleteStage(stageId: string) {
   const supabase = createClient();
   await supabase.from("production_stages").delete().eq("id", stageId);

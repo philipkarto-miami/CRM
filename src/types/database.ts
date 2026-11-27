@@ -92,6 +92,8 @@ export interface ProductionStage {
   // Colonne du catalogue SKU qui pilote cette etape (RECEPTION, EMBROIDERY,
   // SUBCONTRACT_1...). Null = etape toujours applicable, independante du SKU.
   catalog_column: string | null;
+  // Objectif de temps (minutes) du mode atelier ; null = pas d'objectif.
+  target_minutes?: number | null;
   created_at: string;
 }
 

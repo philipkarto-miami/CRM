@@ -1,0 +1,629 @@
+/* ── Mode atelier — charte Philip Karto (tablette) ─────────────────────────────
+   Meme structure que le shop floor Dream Hub, habillee de la charte Karto :
+   noir profond, or, fond chaud, filets fins, titres en serif, angles francs.
+   Tout est scope sous .af pour ne rien toucher au reste du CRM.
+   Cibles tactiles >= 44 px, chiffres tabulaires. */
+
+.af {
+  --black: #0a0a0a;
+  --ink: #221f19;
+  --body: #5b5547;
+  --muted: #8b8574;
+  --paper: #f3f1ea;
+  --card: #ffffff;
+  --line: #e2dccb;
+  --line-soft: #efeadc;
+  --gold: #8a6a30;
+  --gold-dark: #6f5424;
+  --gold-bright: #c9a35c;
+  --gold-light: #e9dcc0;
+  --gold-xlight: #f7f1e2;
+  --ok: #2f9e63;
+  --ok-light: #e6f4ec;
+  --warn: #b45309;
+  --warn-light: #fdf1d8;
+  --err: #c43c2c;
+  --err-light: #fbe9e6;
+  --shadow-sm: 0 1px 3px rgba(10, 10, 10, 0.07);
+  --shadow-md: 0 4px 14px rgba(10, 10, 10, 0.1);
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  -webkit-tap-highlight-color: transparent;
+}
+.af *,
+.af *::before,
+.af *::after {
+  box-sizing: border-box;
+}
+.af a {
+  color: inherit;
+}
+.af :focus-visible {
+  outline: 3px solid var(--gold-bright);
+  outline-offset: 2px;
+}
+
+/* En-tete */
+.af-header {
+  background: var(--black);
+  color: #fff;
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 24px;
+  flex-wrap: wrap;
+  border-bottom: 2px solid var(--gold);
+}
+.af-header__logo {
+  height: 22px;
+  width: auto;
+  display: block;
+}
+.af-header__div {
+  width: 1px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.af-header__title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--gold-bright) !important;
+}
+.af-header__spacer {
+  flex: 1;
+}
+.af-header__clock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
+}
+.af-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 8px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.07);
+}
+.af-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--gold);
+  color: #fff;
+  flex-shrink: 0;
+}
+.af-pill__name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.af-pill__role {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Mise en page */
+.af-main {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px 24px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.af-crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 14px;
+  color: var(--body);
+}
+.af-crumb a {
+  color: var(--gold);
+  font-weight: 600;
+  text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.af-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.af-h1 {
+  font-family: var(--font-serif);
+  font-size: 32px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.15;
+}
+.af-h2 {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 400;
+  margin: 0;
+  color: var(--ink);
+}
+.af-sub {
+  font-size: 15px;
+  color: var(--body);
+  margin: 4px 0 0;
+}
+.af-meta {
+  font-size: 13px;
+  color: var(--body);
+}
+.af-row {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.af-col-main {
+  flex: 999 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.af-col-side {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.af-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: 16px;
+}
+
+/* Cartes */
+.af-card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  box-shadow: var(--shadow-sm);
+  padding: 20px 22px;
+}
+.af-card--brand {
+  background: var(--black);
+  border-color: var(--black);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+}
+.af-card--gold {
+  background: var(--gold-xlight);
+  border-color: var(--gold-light);
+  box-shadow: none;
+}
+
+/* Boutons */
+.af-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 10px 26px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: background 0.2s, opacity 0.2s, transform 0.1s;
+}
+.af-btn:active {
+  transform: scale(0.98);
+}
+.af-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.af-btn--lg {
+  min-height: 56px;
+  padding: 14px 32px;
+  font-size: 14px;
+}
+.af-btn--block {
+  width: 100%;
+}
+.af-btn--primary {
+  background: var(--black);
+  color: #fff !important;
+}
+.af-btn--gold {
+  background: var(--gold);
+  color: #fff !important;
+}
+.af-btn--gold-bright {
+  background: var(--gold-bright);
+  color: var(--black) !important;
+}
+.af-btn--outline {
+  background: transparent;
+  color: var(--ink) !important;
+  border-color: var(--ink);
+}
+.af-btn--outline-white {
+  background: transparent;
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.55);
+}
+.af-btn--white {
+  background: #fff;
+  color: var(--black) !important;
+}
+.af-btn--ghost {
+  background: transparent;
+  color: var(--gold) !important;
+  padding-left: 14px;
+  padding-right: 14px;
+}
+
+/* Badges */
+.af-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.af-badge__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.af-badge--success {
+  background: var(--ok-light);
+  color: var(--ok);
+}
+.af-badge--accent {
+  background: var(--gold);
+  color: #fff;
+}
+.af-badge--dark {
+  background: var(--black);
+  color: var(--gold-bright);
+}
+.af-badge--outline {
+  background: transparent;
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+.af-badge--default {
+  background: var(--line-soft);
+  color: var(--body);
+}
+.af-badge--warning {
+  background: var(--warn-light);
+  color: var(--warn);
+}
+.af-badge--error {
+  background: var(--err-light);
+  color: var(--err);
+}
+
+/* Filtres */
+.af-chip {
+  min-height: 44px;
+  padding: 8px 18px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--body);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.af-chip[aria-pressed="true"],
+.af-chip--on {
+  background: var(--black);
+  border-color: var(--black);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Barres de progression */
+.af-bar {
+  height: 6px;
+  border-radius: 1px;
+  background: var(--line-soft);
+  overflow: hidden;
+}
+.af-bar > span {
+  display: block;
+  height: 100%;
+  transition: width 0.3s;
+}
+
+/* Saisie */
+.af-textarea {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border-radius: 2px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-family: inherit;
+  font-size: 15px;
+  resize: vertical;
+  color: var(--ink);
+}
+.af-textarea:focus {
+  border-color: var(--gold);
+  outline: none;
+}
+
+/* Carte sac (accueil) */
+.af-bag {
+  display: flex;
+  gap: 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.1s, border-color 0.2s;
+}
+.af-bag:active {
+  transform: scale(0.99);
+}
+.af-bag:hover {
+  border-color: var(--gold);
+}
+.af-thumb {
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+  background: var(--gold-xlight);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+  overflow: hidden;
+}
+.af-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Cartes etape */
+.af-stage {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.1s;
+}
+.af-stage:active {
+  transform: scale(0.99);
+}
+.af-stage__head {
+  height: 104px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.af-stage__code {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--body);
+}
+.af-stage__badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+.af-stage__body {
+  padding: 14px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.af-stage__name {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 400;
+  margin: 0;
+}
+.af-stage__foot {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--body);
+  min-height: 36px;
+}
+.af-stage--live {
+  background: var(--gold-xlight);
+  border-color: var(--gold);
+  box-shadow: var(--shadow-md);
+}
+.af-stage--suggested {
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 2px var(--gold-light);
+}
+.af-stage--waiting {
+  box-shadow: none;
+  opacity: 0.8;
+}
+
+/* Liste d'etapes (colonne laterale) */
+.af-mini {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line-soft);
+  text-decoration: none;
+  min-height: 44px;
+  font-size: 14px;
+}
+.af-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: #fff;
+  flex-shrink: 0;
+}
+.af-dot--done {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+.af-dot--running {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.af-dot--paused {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+.af-dot--blocked {
+  background: var(--err);
+  border-color: var(--err);
+}
+
+.af-feedback {
+  padding: 10px 14px;
+  border-radius: 2px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.af-callout {
+  padding: 12px 16px;
+  border-left: 3px solid var(--gold);
+  background: var(--gold-xlight);
+  font-size: 15px;
+}
+
+/* Photos du modele */
+.af-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 14px;
+}
+.af-photo {
+  position: relative;
+  border: 1px solid var(--line);
+  background: var(--gold-xlight);
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  padding: 0;
+  cursor: zoom-in;
+  display: block;
+  width: 100%;
+}
+.af-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #fff;
+}
+.af-photo__tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  background: var(--black);
+  color: var(--gold-bright);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Fenetres */
+.af-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 20px;
+}
+.af-modal img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: #fff;
+}
+
+@keyframes af-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.af-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold-bright);
+  animation: af-pulse 1.6s infinite;
+}
