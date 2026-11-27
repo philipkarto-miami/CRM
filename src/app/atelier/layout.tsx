@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import HeaderClock from "./HeaderClock";
+import { Icon } from "./ui";
 import "./atelier.css";
 
 export const metadata = { title: "Atelier — Philip Karto" };
@@ -45,8 +46,12 @@ export default async function AtelierLayout({ children }: { children: React.Reac
             </span>
             <span className="af-pill__role">{profile.role === "admin" ? "Admin" : "Atelier"}</span>
           </span>
-          <Link href="/dashboard" className="af-btn af-btn--outline-white" style={{ minHeight: 40, padding: "8px 18px", fontSize: 11 }}>
-            CRM
+          <Link
+            href="/production"
+            className="af-btn af-btn--outline-white"
+            style={{ minHeight: 40, padding: "8px 18px", fontSize: 11 }}
+          >
+            <Icon name="arrowLeft" size={16} /> Retour à l&apos;atelier
           </Link>
         </div>
       </header>

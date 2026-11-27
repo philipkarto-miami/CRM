@@ -20,13 +20,13 @@ type BlockedRow = BagStageProgress & {
 // Degrade beige -> or, un ton par phase (hors comptabilite, qui ne concerne
 // pas la charge de fabrication).
 const PHASE_BAR_COLORS: Record<string, string> = {
-  reception: "#c9c0a6",
-  disassembly: "#bba97c",
-  stock_propre: "#ad9a68",
-  manufacturing: "#8a6a30",
-  quality_control: "#a98c4e",
-  wrapping: "#c0a76a",
-  shipping: "#b5ab8e",
+  reception: "#e6dfca",
+  disassembly: "#ddd0ab",
+  stock_propre: "#d1bf8c",
+  manufacturing: "#bf9d57",
+  quality_control: "#a98544",
+  wrapping: "#8f6e33",
+  shipping: "#6f5424",
 };
 
 function daysBetween(from: string, to: string) {
@@ -279,53 +279,68 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Etat de l'atelier : une ligne par phase, la barre est proportionnelle au
-          nombre de sacs. Chaque ligne ouvre le kanban de l'Atelier a cette phase. */}
-      <div className="card rounded-sm px-6 py-5">
+      {/* Etat de l'atelier : une ligne par phase, barre arrondie proportionnelle au
+          nombre de sacs (barres centrees, comme un entonnoir). Chaque ligne ouvre
+          le kanban de l'Atelier a cette phase. */}
+      <div className="rounded-[26px] border border-line bg-white px-5 py-6 shadow-[0_2px_18px_rgba(34,31,25,0.06)] sm:px-8">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-serif text-xl text-paper">Etat de l&apos;atelier</h2>
-          <span className="rounded-full bg-black/[0.06] px-3 py-1 text-[10px] uppercase tracking-widest2 text-paper/55">
+          <h2 className="font-serif text-[22px] text-paper">Etat de l&apos;atelier</h2>
+          <span className="rounded-full bg-[#f3efe2] px-3.5 py-1.5 text-[10px] uppercase tracking-widest2 text-paper/55">
             {atelierTotal} sac{atelierTotal > 1 ? "s" : ""} en cours
           </span>
         </div>
 
-        <div className="mt-4 divide-y divide-line/50">
+        <div className="mt-5 space-y-1">
           {atelierRows.map((row) => (
             <Link
               key={row.phase}
               href={`/production#phase-${row.phase}`}
-              className={cn(
-                "group grid grid-cols-[120px_1fr_44px] items-center gap-3 py-3 sm:grid-cols-[190px_1fr_56px] sm:gap-5",
-                row.count === 0 && "opacity-60"
-              )}
+              className="group grid grid-cols-[96px_1fr_40px] items-center gap-x-3 rounded-2xl px-2 py-2 transition-colors hover:bg-[#faf8f1] sm:grid-cols-[170px_1fr_56px] sm:gap-x-5 sm:px-3"
             >
-              <span>
-                <span className="block text-[11px] uppercase tracking-widest2 text-paper/65 group-hover:text-gold">
-                  {PHASE_LABELS[row.phase]}
+              <span className="text-[11px] font-medium uppercase tracking-widest2 text-paper/55 group-hover:text-gold">
+                {PHASE_LABELS[row.phase]}
+              </span>
+
+              <span className="flex flex-col items-center gap-1.5">
+                <span className="flex h-12 w-full items-center justify-center">
+                  {row.count === 0 ? (
+                    <span className="block h-12 w-14 rounded-full bg-[#f1ede0]" />
+                  ) : (
+                    <span
+                      className="block h-12 rounded-full transition-[width] duration-500 ease-out"
+                      style={{
+                        width: `${Math.max(12, (row.count / atelierMax) * 100)}%`,
+                        background: PHASE_BAR_COLORS[row.phase],
+                      }}
+                    />
+                  )}
                 </span>
                 {(row.late > 0 || row.blocked > 0) && (
-                  <span className="mt-0.5 block text-[11px]">
-                    {row.late > 0 && <span className="text-danger">{row.late} en retard</span>}
-                    {row.late > 0 && row.blocked > 0 && <span className="text-paper/40"> · </span>}
-                    {row.blocked > 0 && <span className="text-amber-600">{row.blocked} bloque{row.blocked > 1 ? "s" : ""}</span>}
+                  <span className="text-[11.5px] leading-none">
+                    {row.late > 0 && <span className="text-danger">↓ {row.late} en retard</span>}
+                    {row.late > 0 && row.blocked > 0 && <span className="text-paper/35"> · </span>}
+                    {row.blocked > 0 && (
+                      <span className="text-amber-600">
+                        {row.blocked} bloque{row.blocked > 1 ? "s" : ""}
+                      </span>
+                    )}
                   </span>
                 )}
               </span>
-              <span className="flex h-10 items-center justify-center rounded-sm bg-line/[0.35]">
-                <span
-                  className="block h-full rounded-sm transition-[width]"
-                  style={{
-                    width: row.count === 0 ? "0%" : `${Math.max(6, (row.count / atelierMax) * 100)}%`,
-                    background: PHASE_BAR_COLORS[row.phase],
-                  }}
-                />
+
+              <span
+                className={cn(
+                  "text-right font-serif text-[32px] leading-none",
+                  row.count === 0 ? "text-paper/30" : "text-paper"
+                )}
+              >
+                {row.count}
               </span>
-              <span className="text-right font-serif text-3xl leading-none text-paper">{row.count}</span>
             </Link>
           ))}
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-paper/55">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line/70 px-2 pt-4 text-[13px] text-paper/55 sm:px-3">
           <span>
             {lateBags.length > 0 ? (
               <span className="text-danger">{lateBags.length} en retard de livraison</span>
@@ -341,7 +356,7 @@ export default async function DashboardPage() {
           </span>
           {delaisMoyens !== null && (
             <span>
-              Delai moyen commande → expedition : <strong className="text-paper/80">{delaisMoyens} jours</strong>
+              Delai moyen commande → expedition <strong className="ml-1 text-[15px] text-paper">{delaisMoyens} j</strong>
             </span>
           )}
         </div>
