@@ -212,6 +212,11 @@ export default function StageScreen({ initial }: { initial: StageDetailView }) {
                   <Icon name="check" size={18} stroke={3} /> Terminer l&apos;étape
                 </button>
               )}
+              {!s.crmBlocked && (s.status === "ready" || live) && (
+                <button className="af-btn af-btn--outline-white af-btn--block" disabled={busy} onClick={() => timer("block")}>
+                  <Icon name="lock" size={16} /> Bloquer · sous-traitance
+                </button>
+              )}
               {s.status === "done" && (
                 <button className="af-btn af-btn--outline-white af-btn--lg af-btn--block" disabled={busy} onClick={() => timer("reopen")}>
                   <Icon name="refresh" size={18} /> Rouvrir

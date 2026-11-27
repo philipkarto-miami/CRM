@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { atelierUser, friendlyError, loadBagContext, stageStatus, type RunRow } from "@/lib/atelier/server";
-import { ATELIER_PHASE_SHORT, activeSeconds, fmtHm, isPauseReason, type PauseReason } from "@/lib/atelier/program";
+import { ATELIER_PHASE_SHORT, BLOCK_REASON, activeSeconds, fmtHm, isPauseReason, type PauseReason } from "@/lib/atelier/program";
 
 // POST — chrono d'une etape. Le serveur fait foi : chaque action est un
 // evenement horodate, la tablette n'affiche que le temps qui en decoule.
@@ -14,7 +14,10 @@ import { ATELIER_PHASE_SHORT, activeSeconds, fmtHm, isPauseReason, type PauseRea
 //           avance tout seul de phase quand la phase est complete)
 //   reopen  etape terminee -> en cours (le temps entre la fin et la reouverture
 //           n'est pas compte)
-type Action = "start" | "pause" | "reason" | "resume" | "finish" | "reopen";
+//   block   etape bloquee (sous-traitance, attente externe) : chrono mis en pause
+//           et etape "bloquee" dans le CRM (alimente "Etapes bloquees" du dashboard) ;
+//           "reprendre" / "demarrer" la debloque
+type Action = "start" | "pause" | "reason" | "resume" | "finish" | "reopen" | "block";
 const CHANGED = "Modifié sur une autre tablette — la page se met à jour.";
 
 const fail = (error: string, status = 409) => NextResponse.json({ error }, { status });
@@ -145,6 +148,8 @@ export async function POST(req: NextRequest, { params }: { params: { bagId: stri
         .limit(1)
         .maybeSingle();
       if (last) await supabase.from("stage_time_events").update({ pause_reason: reason }).eq("id", last.id);
+      // Changer la raison d'une pause bloquee = ne plus etre bloque.
+      if (prog.status === "bloque") await setProgress({ status: "en_cours", blocked_at: null });
       break;
     }
 
@@ -165,6 +170,47 @@ export async function POST(req: NextRequest, { params }: { params: { bagId: stri
         .select("id");
       if (!data?.length) return fail(CHANGED);
       await event(run.id, "resume");
+      if (prog.status === "bloque") await setProgress({ status: "en_cours", blocked_at: null, assigned_to: user.id });
+      break;
+    }
+
+    case "block": {
+      if (status === "done" || status === "waiting") return fail("Cette étape ne peut pas être bloquée maintenant.");
+      if (prog.status === "bloque") return fail("Cette étape est déjà bloquée.");
+      if (run?.status === "running") {
+        const { data } = await supabase
+          .from("stage_runs")
+          .update({
+            status: "paused",
+            paused_at: nowIso,
+            pause_reason: BLOCK_REASON,
+            pause_count: run.pause_count + 1,
+            updated_at: nowIso,
+          })
+          .eq("id", run.id)
+          .eq("status", "running")
+          .select("id");
+        if (!data?.length) return fail(CHANGED);
+        await event(run.id, "pause", BLOCK_REASON);
+      } else if (run?.status === "paused") {
+        await supabase
+          .from("stage_runs")
+          .update({ pause_reason: BLOCK_REASON, updated_at: nowIso })
+          .eq("id", run.id)
+          .eq("status", "paused");
+      }
+      const { error: blockError } = await setProgress({
+        status: "bloque",
+        blocked_at: nowIso,
+        completed_at: null,
+        assigned_to: user.id,
+      });
+      if (blockError) return fail(friendlyError(blockError.message), 500);
+      await supabase.from("activity_log").insert({
+        bag_id: bagId,
+        user_id: user.id,
+        action: `Etape bloquee (atelier) : ${stageName}`,
+      });
       break;
     }
 

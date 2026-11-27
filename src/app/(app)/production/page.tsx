@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentProfile } from "@/lib/supabase/server";
+import { bagHref } from "@/lib/atelier/links";
 import { PageHeader } from "@/components/PageHeader";
 import { ProductionColumns, type ProductionCard, type ProductionColumn } from "@/components/ProductionColumns";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
@@ -25,6 +26,7 @@ export default async function ProductionPage({
   searchParams: { q?: string; blocked?: string; late?: string };
 }) {
   const supabase = createClient();
+  const profile = await getCurrentProfile();
   const { data: bags } = await supabase
     .from("bags")
     .select(
@@ -72,6 +74,7 @@ export default async function ProductionPage({
 
     return {
       id: bag.id,
+      href: bagHref(bag.id, bag.current_phase, profile?.role, "production"),
       phase: bag.current_phase,
       serial_number: bag.serial_number,
       model_label: bag.model_label,
@@ -124,7 +127,7 @@ export default async function ProductionPage({
   return (
     <div>
       <PageHeader
-        eyebrow="Fabrication"
+        eyebrow="Atelier"
         title="Suivi de production"
         action={
           <div className="flex flex-wrap items-center gap-2.5">

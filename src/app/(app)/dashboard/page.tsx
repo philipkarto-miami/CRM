@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentProfile } from "@/lib/supabase/server";
+import { bagHref } from "@/lib/atelier/links";
 import { PageHeader } from "@/components/PageHeader";
 import { DashboardRelierButton } from "@/components/DashboardRelierButton";
 import { PHASE_LABELS, PHASE_ORDER } from "@/lib/constants";
@@ -43,6 +44,7 @@ function customerLabel(order: OrderRow): string | null {
 
 export default async function DashboardPage() {
   const supabase = createClient();
+  const profile = await getCurrentProfile();
 
   const [{ data: orders }, { data: bags }, { data: blockedRows }] = await Promise.all([
     supabase
@@ -59,6 +61,7 @@ export default async function DashboardPage() {
   const typedOrders = (orders as OrderRow[] | null) ?? [];
   const typedBags = (bags as Bag[] | null) ?? [];
   const typedBlocked = (blockedRows as BlockedRow[] | null) ?? [];
+  const phaseByBagId = new Map(typedBags.map((b) => [b.id, b.current_phase]));
   const today = new Date().toISOString().slice(0, 10);
   const now = new Date().toISOString();
 
@@ -99,10 +102,6 @@ export default async function DashboardPage() {
 
   const orderByBagId = new Map(typedOrders.filter((o) => o.bag_id).map((o) => [o.bag_id as string, o]));
 
-  const enTraitement = typedOrders.filter((o) => o.status === "recu" || o.status === "en_traitement").length;
-  const expedieesCetteSemaine = typedOrders.filter(
-    (o) => o.status === "expedie" && o.shipped_at && daysBetween(o.shipped_at, now) <= 7
-  ).length;
   const delaisMoyens = (() => {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
@@ -114,28 +113,20 @@ export default async function DashboardPage() {
     return Math.round(total / withDelay.length);
   })();
 
-  const counts = PHASE_ORDER.map((phase) => ({
-    phase,
-    count: typedBags.filter((b) => b.current_phase === phase).length,
-  }));
-  const chargeTotal = counts.filter((c) => c.phase !== "accounting").reduce((s, c) => s + c.count, 0) || 1;
-
-  // Colonnes "charge de l'atelier" : phases non vides, sacs prioritaires puis
-  // livraison la plus proche (ou la plus depassee) d'abord, sans date en dernier.
-  const phaseColumns = PHASE_ORDER.filter((phase) => phase !== "accounting")
-    .map((phase) => ({
+  // Etat de l'atelier : combien de sacs a chaque phase (hors comptabilite), dont
+  // combien en retard ou bloques. Les phases vides restent affichees (a 0) pour
+  // que le tableau garde toujours la meme forme.
+  const atelierRows = PHASE_ORDER.filter((phase) => phase !== "accounting").map((phase) => {
+    const inPhase = typedBags.filter((b) => b.current_phase === phase);
+    return {
       phase,
-      bags: typedBags
-        .filter((b) => b.current_phase === phase)
-        .sort((a, b) => {
-          if (a.is_priority !== b.is_priority) return a.is_priority ? -1 : 1;
-          if (!a.delivery_date && !b.delivery_date) return 0;
-          if (!a.delivery_date) return 1;
-          if (!b.delivery_date) return -1;
-          return a.delivery_date.localeCompare(b.delivery_date);
-        }),
-    }))
-    .filter((col) => col.bags.length > 0);
+      count: inPhase.length,
+      late: phase === "shipping" ? 0 : inPhase.filter((b) => b.delivery_date && b.delivery_date < today).length,
+      blocked: inPhase.filter((b) => blockedBagIds.has(b.id)).length,
+    };
+  });
+  const atelierTotal = atelierRows.reduce((n, r) => n + r.count, 0);
+  const atelierMax = Math.max(1, ...atelierRows.map((r) => r.count));
 
   // File d'actions : commandes sans sac avec match possible, puis etapes
   // bloquees (les plus anciennes d'abord), puis retards (les plus longs
@@ -184,7 +175,7 @@ export default async function DashboardPage() {
         ),
         sub: b.subcontract_note ? `Sous-traite — ${b.subcontract_note}` : "Relancer l'atelier",
         action: (
-          <Link href={`/bags/${b.bags?.id}`} className="shrink-0 whitespace-nowrap rounded-sm border border-line px-3 py-1.5 text-[11px] text-paper/65 hover:border-gold hover:text-gold">
+          <Link href={bagHref(b.bags?.id ?? "", phaseByBagId.get(b.bags?.id ?? ""), profile?.role)} className="shrink-0 whitespace-nowrap rounded-sm border border-line px-3 py-1.5 text-[11px] text-paper/65 hover:border-gold hover:text-gold">
             Voir le sac
           </Link>
         ),
@@ -206,7 +197,7 @@ export default async function DashboardPage() {
         ),
         sub: `Livraison prevue le ${formatDate(bag.delivery_date)}${linkedOrder && customerLabel(linkedOrder) ? `, commande ${customerLabel(linkedOrder)}` : ""}`,
         action: (
-          <Link href={`/bags/${bag.id}`} className="shrink-0 whitespace-nowrap rounded-sm border border-line px-3 py-1.5 text-[11px] text-paper/65 hover:border-gold hover:text-gold">
+          <Link href={bagHref(bag.id, bag.current_phase, profile?.role)} className="shrink-0 whitespace-nowrap rounded-sm border border-line px-3 py-1.5 text-[11px] text-paper/65 hover:border-gold hover:text-gold">
             Voir le sac
           </Link>
         ),
@@ -269,132 +260,92 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3">
-          <p className="eyebrow mb-2.5">A traiter en priorite</p>
-          <div className="card divide-y divide-line/60 rounded-sm">
-            {priorityRows.map((row) => (
-              <div key={row.key} className="flex items-center gap-3 px-4 py-3.5">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-danger" />
-                <div className="flex-1">
-                  <p className="text-[13px] text-paper/85">{row.text}</p>
-                  <p className="mt-0.5 text-xs text-paper/55">{row.sub}</p>
-                </div>
-                {row.action}
+      <div className="mb-6">
+        <p className="eyebrow mb-2.5">A traiter en priorite</p>
+        <div className="card divide-y divide-line/60 rounded-sm">
+          {priorityRows.map((row) => (
+            <div key={row.key} className="flex items-center gap-3 px-4 py-3.5">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-danger" />
+              <div className="flex-1">
+                <p className="text-[13px] text-paper/85">{row.text}</p>
+                <p className="mt-0.5 text-xs text-paper/55">{row.sub}</p>
               </div>
-            ))}
-            {priorityRows.length === 0 && (
-              <p className="px-4 py-8 text-center text-sm text-paper/50">Rien a signaler pour le moment.</p>
-            )}
-          </div>
-        </div>
-
-        <div className="lg:col-span-2">
-          <p className="eyebrow mb-2.5">Ventes en attente de l&apos;atelier</p>
-          <div className="card divide-y divide-line/60 rounded-sm">
-            <div className="flex items-center justify-between px-4 py-3 text-[13px]">
-              <span className="text-paper/75">Sac a commander</span>
-              <span className={cn("font-serif", pendingOrders.length > 0 ? "text-danger" : "text-paper")}>
-                {pendingOrders.length}
-              </span>
+              {row.action}
             </div>
-            <div className="flex items-center justify-between px-4 py-3 text-[13px]">
-              <span className="text-paper/75">En traitement a l&apos;atelier</span>
-              <span className="font-serif text-paper">{enTraitement}</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3 text-[13px]">
-              <span className="text-paper/75">A expedier</span>
-              <span className="font-serif text-paper">{readyToShip.length}</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3 text-[13px]">
-              <span className="text-paper/75">Expediees cette semaine</span>
-              <span className="font-serif text-success">{expedieesCetteSemaine}</span>
-            </div>
-          </div>
-          {delaisMoyens !== null && (
-            <p className="mt-2.5 text-xs text-paper/55">
-              Delai moyen commande → expedition : <strong className="text-paper/80">{delaisMoyens} jours</strong>
-            </p>
+          ))}
+          {priorityRows.length === 0 && (
+            <p className="px-4 py-8 text-center text-sm text-paper/50">Rien a signaler pour le moment.</p>
           )}
         </div>
       </div>
 
-      <p className="eyebrow mb-2.5">Charge de l&apos;atelier par phase</p>
-      {/* Une colonne par phase qui contient des sacs, avec les sacs eux-memes :
-          on voit quels sacs sont ou, et lesquels sont en retard ou bloques. */}
-      {phaseColumns.length === 0 ? (
-        <p className="card rounded-sm px-4 py-5 text-sm text-paper/50">Aucun sac en cours de fabrication.</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {phaseColumns.map((col) => (
-            <div
-              key={col.phase}
-              className="card rounded-sm border-t-[3px] px-3.5 pb-3 pt-3"
-              style={{ borderTopColor: PHASE_BAR_COLORS[col.phase] }}
-            >
-              <Link
-                href={`/production#phase-${col.phase}`}
-                className="mb-2 flex items-baseline justify-between gap-2 hover:text-gold"
-                title="Ouvrir le kanban"
-              >
-                <span className="text-[11px] uppercase tracking-wide text-paper/70">{PHASE_LABELS[col.phase]}</span>
-                <span className="font-serif text-2xl leading-none text-paper">{col.bags.length}</span>
-              </Link>
-              <ul className="divide-y divide-line/60">
-                {col.bags.slice(0, 5).map((b) => {
-                  const late = Boolean(b.delivery_date) && (b.delivery_date as string) < today;
-                  const blocked = blockedBagIds.has(b.id);
-                  return (
-                    <li key={b.id}>
-                      <Link
-                        href={`/bags/${b.id}?from=production`}
-                        className="flex min-h-[44px] items-center gap-2.5 py-2 hover:bg-bone/60"
-                      >
-                        <span
-                          className={cn(
-                            "h-2 w-2 shrink-0 rounded-full",
-                            late ? "bg-danger" : blocked ? "bg-amber-500" : "bg-line"
-                          )}
-                          aria-hidden
-                        />
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm text-gold">{b.serial_number}</span>
-                          <span className="block truncate text-xs text-paper/55">{b.model_label}</span>
-                        </span>
-                        <span className="shrink-0 text-right text-[11px] leading-tight">
-                          {late && (
-                            <span className="block text-danger">
-                              retard {daysBetween(b.delivery_date as string, today)} j
-                            </span>
-                          )}
-                          {blocked && <span className="block text-amber-600">bloque</span>}
-                          {b.is_priority && <span className="block text-paper/60">prioritaire</span>}
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-              {col.bags.length > 5 && (
-                <Link
-                  href={`/production#phase-${col.phase}`}
-                  className="mt-1 block py-2 text-xs text-gold hover:underline"
-                >
-                  + {col.bags.length - 5} autre{col.bags.length - 5 > 1 ? "s" : ""} →
-                </Link>
+      {/* Etat de l'atelier : une ligne par phase, la barre est proportionnelle au
+          nombre de sacs. Chaque ligne ouvre le kanban de l'Atelier a cette phase. */}
+      <div className="card rounded-sm px-6 py-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-xl text-paper">Etat de l&apos;atelier</h2>
+          <span className="rounded-full bg-black/[0.06] px-3 py-1 text-[10px] uppercase tracking-widest2 text-paper/55">
+            {atelierTotal} sac{atelierTotal > 1 ? "s" : ""} en cours
+          </span>
+        </div>
+
+        <div className="mt-4 divide-y divide-line/50">
+          {atelierRows.map((row) => (
+            <Link
+              key={row.phase}
+              href={`/production#phase-${row.phase}`}
+              className={cn(
+                "group grid grid-cols-[120px_1fr_44px] items-center gap-3 py-3 sm:grid-cols-[190px_1fr_56px] sm:gap-5",
+                row.count === 0 && "opacity-60"
               )}
-            </div>
+            >
+              <span>
+                <span className="block text-[11px] uppercase tracking-widest2 text-paper/65 group-hover:text-gold">
+                  {PHASE_LABELS[row.phase]}
+                </span>
+                {(row.late > 0 || row.blocked > 0) && (
+                  <span className="mt-0.5 block text-[11px]">
+                    {row.late > 0 && <span className="text-danger">{row.late} en retard</span>}
+                    {row.late > 0 && row.blocked > 0 && <span className="text-paper/40"> · </span>}
+                    {row.blocked > 0 && <span className="text-amber-600">{row.blocked} bloque{row.blocked > 1 ? "s" : ""}</span>}
+                  </span>
+                )}
+              </span>
+              <span className="flex h-10 items-center justify-center rounded-sm bg-line/[0.35]">
+                <span
+                  className="block h-full rounded-sm transition-[width]"
+                  style={{
+                    width: row.count === 0 ? "0%" : `${Math.max(6, (row.count / atelierMax) * 100)}%`,
+                    background: PHASE_BAR_COLORS[row.phase],
+                  }}
+                />
+              </span>
+              <span className="text-right font-serif text-3xl leading-none text-paper">{row.count}</span>
+            </Link>
           ))}
         </div>
-      )}
-      <p className="mt-3.5 text-xs text-paper/55">
-        Clique sur un sac pour ouvrir sa fiche, sur le titre d&apos;une phase pour ouvrir le kanban. Le chiffre
-        d&apos;affaires et les paiements restent sur la page Commandes (role comptabilite) — ils ne pilotent pas
-        l&apos;atelier.
-      </p>
-      <p className="mt-1 text-[11px] text-paper/40">
-        {chargeTotal} sac{chargeTotal > 1 ? "s" : ""} en cours de fabrication (hors comptabilite).
-      </p>
+
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-xs text-paper/55">
+          <span>
+            {lateBags.length > 0 ? (
+              <span className="text-danger">{lateBags.length} en retard de livraison</span>
+            ) : (
+              "Aucun retard de livraison"
+            )}
+            {blockedBagIds.size > 0 && (
+              <>
+                {" · "}
+                <span className="text-amber-600">{blockedBagIds.size} avec une etape bloquee</span>
+              </>
+            )}
+          </span>
+          {delaisMoyens !== null && (
+            <span>
+              Delai moyen commande → expedition : <strong className="text-paper/80">{delaisMoyens} jours</strong>
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

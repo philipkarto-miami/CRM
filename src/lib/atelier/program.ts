@@ -27,9 +27,13 @@ export const PAUSE_REASONS = [
   { key: "aide_collegue", label: "Aide à un collègue" },
 ] as const;
 export type PauseReason = (typeof PAUSE_REASONS)[number]["key"];
+// Raison posee automatiquement quand on bloque une etape (sous-traitance, attente
+// externe) : le chrono est mis en pause, l'etape devient "bloquee" dans le CRM.
+export const BLOCK_REASON = "sous_traitance";
+
 export const isPauseReason = (v: unknown): v is PauseReason => PAUSE_REASONS.some((r) => r.key === v);
 export const pauseLabel = (key: string | null | undefined) =>
-  PAUSE_REASONS.find((r) => r.key === key)?.label ?? "Pause";
+  key === BLOCK_REASON ? "Bloquée · sous-traitance" : PAUSE_REASONS.find((r) => r.key === key)?.label ?? "Pause";
 
 // ── Statut d'une etape ───────────────────────────────────────────────────────
 // waiting : phase pas encore atteinte par le sac
@@ -62,6 +66,8 @@ export interface StageView {
   run: RunView | null;
   subcontractNote: string | null;
   crmNote: string | null;
+  // Etape marquee "bloquee" dans le CRM (sous-traitance, attente externe).
+  crmBlocked: boolean;
   // Prochaine etape a faire dans la phase en cours du sac.
   suggested: boolean;
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { notFound, redirect } from "next/navigation";
+import { createClient, getCurrentProfile } from "@/lib/supabase/server";
+import { usesAtelierView } from "@/lib/atelier/links";
 import { updateBag, deleteBag } from "../actions";
 import { FormRow, Input, Select, Textarea } from "@/components/ui/Field";
 import { Button } from "@/components/ui/Button";
@@ -49,9 +50,23 @@ export default async function BagDetailPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { error?: string; view?: string; from?: string };
+  searchParams: { error?: string; saved?: string; view?: string; from?: string };
 }) {
   const supabase = createClient();
+
+  // Un sac en cours de travail (desassemblage -> emballage) s'ouvre dans la vue
+  // atelier (chrono par etape) pour l'admin et le compte atelier. La fiche
+  // complete reste accessible via ?view=infos ; les messages (erreur, succes)
+  // d'une action restent affiches ici.
+  if (!searchParams?.view && !searchParams?.error && !searchParams?.saved) {
+    const [profile, { data: phaseRow }] = await Promise.all([
+      getCurrentProfile(),
+      supabase.from("bags").select("current_phase").eq("id", params.id).maybeSingle(),
+    ]);
+    if (phaseRow && usesAtelierView(phaseRow.current_phase, profile?.role)) {
+      redirect(`/atelier/${params.id}`);
+    }
+  }
 
   const [{ data: bag }, { data: suppliers }, { data: progress }, { data: photoRows }, catalogCodes, { data: modelRows }] =
     await Promise.all([
@@ -131,7 +146,7 @@ export default async function BagDetailPage({
   const deleteBagWithId = deleteBag.bind(null, typedBag.id);
   const isInfosView = searchParams?.view === "infos";
   const backHref = searchParams?.from === "production" ? "/production" : "/bags";
-  const backLabel = searchParams?.from === "production" ? "← Fabrication" : "← Stock";
+  const backLabel = searchParams?.from === "production" ? "← Atelier" : "← Stock";
 
   const photos = await Promise.all(
     ((photoRows as BagPhoto[] | null) ?? []).map(async (photo) => {

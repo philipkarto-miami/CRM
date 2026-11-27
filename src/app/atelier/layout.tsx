@@ -25,12 +25,12 @@ export default async function AtelierLayout({ children }: { children: React.Reac
   return (
     <div className="af">
       <header className="af-header">
-        <Link href="/atelier" aria-label="Accueil atelier" style={{ display: "flex" }}>
+        <Link href="/production" aria-label="Retour au kanban de l'atelier" style={{ display: "flex" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/philip-karto-logo-white.avif" alt="Philip Karto" className="af-header__logo" />
         </Link>
         <span className="af-header__div" aria-hidden />
-        <Link href="/atelier" className="af-header__title">
+        <Link href="/production" className="af-header__title">
           Atelier
         </Link>
         <span className="af-header__spacer" />

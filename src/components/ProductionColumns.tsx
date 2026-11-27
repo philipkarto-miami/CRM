@@ -7,6 +7,8 @@ import type { StagePhase } from "@/types/database";
 
 export type ProductionCard = {
   id: string;
+  // Ou ouvrir le sac : vue atelier (phases de travail) ou fiche du CRM.
+  href: string;
   phase: StagePhase;
   serial_number: string;
   model_label: string;
@@ -94,7 +96,7 @@ export function ProductionColumns({ columns }: { columns: ProductionColumn[] }) 
                 return (
                   <Link
                     key={bag.id}
-                    href={`/bags/${bag.id}?from=production`}
+                    href={bag.href}
                     className={cn(
                       "block rounded-sm border bg-white p-3 hover:border-gold",
                       flagged ? "border-danger" : "border-line"

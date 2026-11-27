@@ -17,7 +17,7 @@ export default async function AtelierStagePage({ params }: { params: { bagId: st
       <div className="af-card" style={{ textAlign: "center", padding: 40 }}>
         <p className="af-h2">{error ? "Impossible d'ouvrir cette étape" : "Étape introuvable"}</p>
         <p className="af-sub">{error ?? "Cette étape n'existe pas pour ce sac."}</p>
-        <Link href={ctx ? `/atelier/${params.bagId}` : "/atelier"} className="af-btn af-btn--primary" style={{ marginTop: 16 }}>
+        <Link href={ctx ? `/atelier/${params.bagId}` : "/production"} className="af-btn af-btn--primary" style={{ marginTop: 16 }}>
           Retour
         </Link>
       </div>

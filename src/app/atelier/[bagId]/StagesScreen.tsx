@@ -38,8 +38,8 @@ export default function StagesScreen({ initial }: { initial: BagView }) {
   return (
     <>
       <nav className="af-crumb" aria-label="Fil d'Ariane">
-        <Link href="/atelier">
-          <Icon name="arrowLeft" size={18} /> Sacs à l&apos;atelier
+        <Link href="/production">
+          <Icon name="arrowLeft" size={18} /> Atelier
         </Link>
         <span>/</span>
         <span style={{ fontWeight: 600, color: "var(--ink)" }}>{bag.serial}</span>
@@ -65,6 +65,11 @@ export default function StagesScreen({ initial }: { initial: BagView }) {
               {bag.edition ? ` · ${bag.edition}` : ""}
             </div>
             {bag.deliveryShort && <div className="af-meta">Livraison prévue le {bag.deliveryShort}</div>}
+            <div>
+              <Link href={`/bags/${bag.id}?view=infos`} className="af-btn af-btn--outline" style={{ minHeight: 40, padding: "8px 16px", fontSize: 11 }}>
+                Fiche du sac · code PK · photos
+              </Link>
+            </div>
           </div>
         </div>
         <div style={{ flex: "1 1 260px", minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -92,8 +97,8 @@ export default function StagesScreen({ initial }: { initial: BagView }) {
             <div style={{ fontFamily: "var(--font-serif)", fontSize: 20 }}>Toutes les étapes de l&apos;atelier sont terminées</div>
             <div style={{ fontSize: 14, color: "rgba(255,255,255,0.65)" }}>Le sac passe à l&apos;expédition dans le CRM.</div>
           </div>
-          <Link href="/atelier" className="af-btn af-btn--white af-btn--lg">
-            Retour aux sacs
+          <Link href="/production" className="af-btn af-btn--white af-btn--lg">
+            Retour à l&apos;atelier
           </Link>
         </section>
       )}

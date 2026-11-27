@@ -15,8 +15,8 @@ export default async function AtelierBagPage({ params }: { params: { bagId: stri
       <div className="af-card" style={{ textAlign: "center", padding: 40 }}>
         <p className="af-h2">{error ? "Impossible d'ouvrir ce sac" : "Sac introuvable"}</p>
         <p className="af-sub">{error ?? "Ce sac n'existe plus ou n'est pas à l'atelier."}</p>
-        <Link href="/atelier" className="af-btn af-btn--primary" style={{ marginTop: 16 }}>
-          Tous les sacs
+        <Link href="/production" className="af-btn af-btn--primary" style={{ marginTop: 16 }}>
+          Retour à l'atelier
         </Link>
       </div>
     );
