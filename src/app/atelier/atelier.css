@@ -358,12 +358,18 @@
   gap: 8px;
   text-decoration: none;
 }
+/* Filtre actif : fond noir, texte blanc. */
 .af-chip[aria-pressed="true"],
 .af-chip--on {
   background: var(--black);
   border-color: var(--black);
   color: #fff;
   font-weight: 600;
+}
+/* Les filtres de l'accueil sont des liens : ".af a { color: inherit }" (plus
+   specifique) leur ferait garder le texte sombre sur fond noir. */
+.af a.af-chip--on {
+  color: #fff;
 }
 
 /* Barres de progression */
